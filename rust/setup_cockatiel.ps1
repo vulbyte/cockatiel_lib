@@ -1,3 +1,7 @@
+Here are the adjustments to address version conflicts and file path flexibility, paired with cross-platform setup scripts (Bash for Unix/Linux/macOS and PowerShell for Windows) to automate the entire scaffolding process.
+
+---
+
 ### Updated `README.md` (With Flexibility & Conflict Notes)
 
 ---
@@ -77,6 +81,7 @@ To make scaffolding completely mindless, here are the automated setup scripts. T
 #### 1. Unix / macOS Bash Script (`setup_cockatiel.sh`)
 
 Run this in your Rust project root (`chmod +x setup_cockatiel.sh && ./setup_cockatiel.sh`):
+
 ```bash
 #!/usr/bin/env bash
 set -e
@@ -107,3 +112,29 @@ echo "Setup complete! Drop your 'cockatiel.proto' into the 'proto/' folder and '
 
 Run this in PowerShell from your Rust project root:
 
+```powershell
+Write-Host "Setting up Cockatiel module structure..." -ForegroundColor Cyan
+
+# Create directories
+if (!(Test-Path -Path "proto")) { New-Item -ItemType Directory -Path "proto" }
+if (!(Test-Path -Path "src")) { New-Item -ItemType Directory -Path "src" }
+
+# Create build.rs if it doesn't exist
+$BuildRsPath = "build.rs"
+if (!(Test-Path -Path $BuildRsPath)) {
+    $BuildRsContent = @"
+fn main() {
+    prost_build::compile_protos(&["proto/cockatiel.proto"], &["proto/"]).unwrap();
+}
+"@
+    Set-Content -Path $BuildRsPath -Value $BuildRsContent
+    Write-Host "Created build.rs" -ForegroundColor Green
+} else {
+    Write-Host "build.rs already exists, skipping." -ForegroundColor Yellow
+}
+
+Write-Host "Setup complete! Drop your 'cockatiel.proto' into the 'proto/' folder and 'cockatiel_lib.rs' into 'src/'." -ForegroundColor Green
+
+```
+
+---

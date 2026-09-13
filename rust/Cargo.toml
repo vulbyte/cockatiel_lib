@@ -1,3 +1,5 @@
+[workspace]
+
 [package]
 name = "cockatiel-client"
 version = "0.1.0"
@@ -5,12 +7,12 @@ edition = "2021"
 description = "Rust client SDK for connecting modules to the cockatiel engine"
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = "0.23"
+tokio = { version = "1.0", features = ["full"] }
+tokio-tungstenite = { version = "0.21", features = ["rustls-tls-webpki-roots"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+prost = "0.12"
 futures-util = "0.3"
-prost = "0.13"
-url = "2"
-thiserror = "1"
 
 [build-dependencies]
-prost-build = "0.13"
+prost-build = "0.12"
