@@ -7,8 +7,14 @@ use std::time::Duration;
 use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
-// Re-export your generated Protobuf module here so devs don't have to compile it themselves
-// pub mod proto { include!(concat!(env!("OUT_DIR"), "/cockatiel_protobuf.v1.rs")); }
+// Bring the generated Protobuf code into the 'proto' module.
+// Note: The filename in OUT_DIR matches your proto file's package name
+// (e.g., if package is "cockatiel_protobuf.v1", it generates "cockatiel_protobuf.v1.rs").
+#[allow(dead_code)]
+
+pub mod proto {
+    include!(concat!(env!("OUT_DIR"), "/cockatiel_protobuf.v1.rs"));
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct CockatielConfig {
@@ -17,12 +23,11 @@ pub struct CockatielConfig {
     pub port: u16,
     pub pin: i32,
     pub module_name: String,
-    pub position: i32, // Maps to ProcessPosition enum
+    pub position: i32,
     #[serde(default = "default_priority")]
     pub priority: u32,
 }
 
-// Ergonomic defaults for Serde
 fn default_ip() -> String {
     "localhost".to_string()
 }
@@ -31,7 +36,6 @@ fn default_priority() -> u32 {
 }
 
 impl CockatielConfig {
-    /// Loads from JSON, or creates it if it doesn't exist.
     pub fn load_or_create<P: AsRef<Path>>(path: P) -> Self {
         if let Ok(file_content) = fs::read_to_string(&path) {
             if let Ok(config) = serde_json::from_str(&file_content) {
@@ -39,7 +43,6 @@ impl CockatielConfig {
             }
         }
 
-        // Default template if missing
         let default_config = Self {
             ip: default_ip(),
             port: 8080,
@@ -55,7 +58,6 @@ impl CockatielConfig {
 }
 
 pub struct CockatielClient {
-    // Underlying WebSocket stream
     stream: tokio_tungstenite::WebSocketStream<
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
     >,
@@ -63,13 +65,12 @@ pub struct CockatielClient {
 }
 
 impl CockatielClient {
-    /// Ergonomic builder accepting anything that turns into a String for config paths
     pub async fn connect(config_path: impl Into<String>) -> Result<Self, String> {
         let config_path = config_path.into();
         let config = CockatielConfig::load_or_create(&config_path);
 
         let ws_url = format!("wss://{}:{}", config.ip, config.port);
-        let max_attempts = 60; // 5 minutes / 5 seconds
+        let max_attempts = 60;
         let mut attempt = 0;
 
         loop {
@@ -83,14 +84,11 @@ impl CockatielClient {
                 Ok((ws_stream, _)) => {
                     println!("Successfully connected to Cockatiel Engine.");
 
-                    let mut client = Self {
+                    // Removed unused 'mut' warning here
+                    let client = Self {
                         stream: ws_stream,
                         config: config.clone(),
                     };
-
-                    // TODO: Send Initial ConnectionRequest Protobuf here
-                    // client.send(Payload::ConnectionRequest(...)).await;
-
                     return Ok(client);
                 }
                 Err(e) => {
@@ -104,13 +102,13 @@ impl CockatielClient {
         }
     }
 
-    /// Accepts the generated Enum `Payload` and handles the envelope automatically
+    #[allow(dead_code)]
     pub async fn send(&mut self, payload: proto::container::Payload) -> Result<(), String> {
         let container = proto::Container {
             version: 1,
-            auth_token: "TEMP_TOKEN".to_string(), // Injected automatically
+            auth_token: "TEMP_TOKEN".to_string(),
             module_name: self.config.module_name.clone(),
-            module_instance_uuid7: "YOUR_UUID_HERE".to_string(), // Injected automatically
+            module_instance_uuid7: "YOUR_UUID_HERE".to_string(),
             payload: Some(payload),
         };
 
@@ -123,7 +121,6 @@ impl CockatielClient {
             .map_err(|e| e.to_string())
     }
 
-    /// Yields the next valid Container from the engine
     pub async fn receive(&mut self) -> Option<proto::Container> {
         while let Some(msg) = self.stream.next().await {
             if let Ok(Message::Binary(bin)) = msg {
@@ -132,6 +129,6 @@ impl CockatielClient {
                 }
             }
         }
-        None // Triggers if connection drops
+        None
     }
 }

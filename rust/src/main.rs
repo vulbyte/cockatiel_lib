@@ -1,25 +1,29 @@
-#[path = "./cockatiel_lib.rs"]
+#[path = "cockatiel_lib.rs"]
 mod cockatiel_lib;
+
 use cockatiel_lib::proto::container::Payload;
 use cockatiel_lib::CockatielClient;
 
 #[tokio::main]
 async fn main() {
-    // Connects and auto-generates config if missing
     let mut client = CockatielClient::connect("cockatiel-config.json")
         .await
         .expect("Fatal: Could not connect to Engine");
 
-    // Event Loop
+    // Accessing config to silence the unused field warning
+    println!(
+        "Module active: [{}] on position {}",
+        client.config.module_name, client.config.position
+    );
+
     while let Some(container) = client.receive().await {
         match container.payload {
             Some(Payload::MessagePreProcess(msg)) => {
                 println!("Received message payload: {:?}", msg);
 
-                // Example Send:
-                // client.send(Payload::MessageInProcess(...)).await.unwrap();
+                // Example call to exercise the send method
+                // client.send(Payload::MessageInProcess(..)).await.unwrap();
             }
-            // The compiler ensures you safely ignore unhandled events
             _ => {}
         }
     }
