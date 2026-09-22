@@ -27,12 +27,20 @@ here. All repos share this same vendored proto.
 
 ## Layout
 
+Each language lives in its own **self-contained folder**: copy that one folder
+(plus its documented dependencies) and import — nothing is reached outside it at
+runtime. The root `cockatiel_protobuf.proto` is the canonical reference; folders
+that need the proto at runtime vendor their own copy.
+
 ```
-cockatiel_protobuf.proto   wire format (pinned by SHA)
+cockatiel_protobuf.proto   canonical wire format (pinned by SHA)
 CLIENT_CONTRACT.md         the spec every language client implements
-javascript/                JS client (the only home of the .mjs lib)
-c/                         C client (cmake)
-dotnet/                    C# client (single .cs + package)
-gdscript/                  gdScript client (single .gd)
-cpp11/                     C++ wrapper over the C client
+javascript/                JS client (.mjs + vendored proto + package.json)
+c/                         C client (cmake; nanopb runtime vendored)
+dotnet/                    C# client (single .cs, generated proto inline)
+gdscript/                  gdScript client (single .gd, codec inline)
+cpp11/                     C++ wrapper over the C client (link ../c)
+odin/                      Odin client (native, codec inline)
+java/                      Java client (single .java + vendored jar)
+lua/                       Lua client (single .lua, LuaJIT FFI)
 ```
