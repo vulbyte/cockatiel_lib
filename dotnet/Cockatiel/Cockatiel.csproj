@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Cockatiel</RootNamespace>
+    <AssemblyName>Cockatiel</AssemblyName>
+    <PackageId>Cockatiel</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>cockatiel</Authors>
+    <Description>Single-file C# client for the Cockatiel chat engine (binary protobuf over one WebSocket).</Description>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.30.0" />
+  </ItemGroup>
+
+</Project>

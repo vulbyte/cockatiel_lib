@@ -1,0 +1,14 @@
+; Engine configuration file.
+; Minimal Godot project wrapping the one-file Cockatiel GDScript client.
+config_version=5
+
+[application]
+
+config/name="Cockatiel GDScript Client"
+run/main_scene="res://test/test_runner.tscn"
+config/features=PackedStringArray("4.7")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

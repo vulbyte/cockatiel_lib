@@ -68,11 +68,13 @@ class HandlerRegistry {
 }
 
 export class EngineConnection {
-  constructor(ws, pb, moduleName, moduleInstanceUuid7) {
+  constructor(ws, pb, moduleName, moduleInstanceUuid7, processPosition, priority) {
     this.ws = ws;
     this.pb = pb;
     this.moduleName = moduleName;
     this._moduleInstanceUuid7 = moduleInstanceUuid7;
+    this._processPosition = processPosition || '';
+    this._priority = priority != null ? priority : 100;
     this._authToken = '';
     this._closing = false;
     this.registry = new HandlerRegistry();
@@ -168,9 +170,9 @@ export class EngineConnection {
   }
 
   /**
-   * Reconnect to the engine using the stored JWT (name-trust auth). The engine
-   * recognizes a container carrying a valid auth_token as a reauth on a fresh
-   * socket — see the Rust client's reconnect().
+   * Reconnect to the engine using the stored JWT (name-trust auth). The
+   * engine gates the first frame on ANY fresh socket to a ConnectionRequest,
+   * so the reauth carries one, with the JWT in auth_token.
    */
   async reconnect() {
     if (!this._authToken) {
@@ -188,7 +190,12 @@ export class EngineConnection {
       authToken: this._authToken,
       moduleName: this.moduleName,
       moduleInstanceUuid7: this._moduleInstanceUuid7,
-      log: { log: `${this.moduleName} reconnected`, blob: null },
+      connectionRequest: {
+        pin: 0,
+        processPosition: this._processPosition || '',
+        priority: this._priority || 100,
+        moduleInstanceUuid7: this._moduleInstanceUuid7,
+      },
     };
 
     const oldWs = this.ws;
@@ -275,7 +282,7 @@ export async function connectToEngine(opts, pb) {
   }
 
   const resolvedUuid = ret.moduleInstanceUuid7 || requestedUuid;
-  const conn = new EngineConnection(ws, pb, opts.moduleName, resolvedUuid);
+  const conn = new EngineConnection(ws, pb, opts.moduleName, resolvedUuid, opts.processPosition, opts.priority);
   conn.setAuthToken(responseContainer.authToken);
   return conn;
 }
