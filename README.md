@@ -17,9 +17,12 @@ pinned to `vulbyte/cockatiel_proto@0128454`.
 | Python | `from lib_cockatiel import CockatielClient` | canonical: [`vulbyte/cockatiel_client-py`](https://github.com/vulbyte/cockatiel_client-py) | `websockets`, `grpcio-tools` |
 | Rust | `use cockatiel_client::CockatielClient;` | canonical: [`vulbyte/cockatiel_client-rs`](https://github.com/vulbyte/cockatiel_client-rs) | crate (prost) |
 | C# | `using Cockatiel;` + `PackageReference` | [`dotnet/Cockatiel.cs`](dotnet/Cockatiel.cs) | Google.Protobuf, `System.Net.WebSockets` |
-| C | `#include <cockatiel_lib.h>` + 1 cmake link line | [`c/cockatiel_lib.h`](c/cockatiel_lib.h) | protobuf-c, a WS lib (libwebsockets) |
+| C | `#include <cockatiel_lib.h>` + 1 cmake link line | [`c/cockatiel_lib.h`](c/cockatiel_lib.h) | nanopb (vendored), libwebsockets |
 | C++ | `#include <cockatiel_lib.hpp>` | [`cpp11/cockatiel_lib.hpp`](cpp11/cockatiel_lib.hpp) | thin RAII wrapper over the C lib |
 | gdScript | `preload("res://cockatiel_lib.gd")` | [`gdscript/cockatiel_lib.gd`](gdscript/cockatiel_lib.gd) | Godot built-in `WebSocketPeer` |
+| Odin | `import ck "cockatiel_lib"` | [`odin/cockatiel_lib/cockatiel_lib.odin`](odin/cockatiel_lib/cockatiel_lib.odin) | Odin stdlib (`core:net`) |
+| Java | `import cockatiel.Cockatiel;` | [`java/Cockatiel.java`](java/Cockatiel.java) | vendored `protobuf-java` jar, `java.net.http.WebSocket` |
+| Lua | `local lib = require("cockatiel_lib")` | [`lua/cockatiel_lib.lua`](lua/cockatiel_lib.lua) | LuaJIT FFI only (zero deps) |
 
 Python and Rust live in their standalone SDK repos (git-rev pinned by consumers,
 so the wire format a module builds against never shifts); everything else lives
