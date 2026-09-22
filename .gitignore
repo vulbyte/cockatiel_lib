@@ -1,0 +1,39 @@
+# Runtime config — contains secrets (tokens/oauth/PIN). Never commit.
+config.json
+chat_config.json
+modules.json
+login.json
+term-chat-rs.json
+.env
+.env.local
+.env.*.local
+
+# Databases — never commit.
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Runtime artifacts
+node_modules/
+.cockatiel_pb2_cache/
+__pycache__/
+*.pyc
+*.log
+*.tmp
+*.bak
+.DS_Store
+
+# Build output (C / C# / C++)
+build/
+bin/
+obj/
+target/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe

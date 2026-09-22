@@ -1,19 +1,15 @@
 {
-  "name": "local_clients",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "cockatiel-lib-js",
+  "version": "0.1.0",
+  "description": "One-file Cockatiel client (JavaScript) — connect() a module to the engine with single-connection PIN->JWT auth.",
+  "main": "lib-cockatiel.mjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "keywords": ["cockatiel", "chat", "engine", "client"],
+  "license": "GPL-2.0-only",
   "dependencies": {
-    "discord.js": "^14.27.0",
-    "protobufjs": "^8.8.0",
-    "uuid": "^14.0.2",
-    "ws": "^8.21.3"
+    "protobufjs": "^7.2.6",
+    "ws": "^8.18.0"
   }
 }
