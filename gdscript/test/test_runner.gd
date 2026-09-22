@@ -11,12 +11,16 @@ var _connect_ms := 0
 var _quit_on := 0
 var _sent_log := false
 var _sent_query := false
+var _sent_ingest := false
+var _sent_chain_query := false
 var _saw_result := false
+var _chain_ok := false
 var _reconnected := false
 var _rx_count := 0
 var _done := false
 var _result_query_id := ""
 var _result_text := ""
+var _msg := ""
 
 
 func _ready() -> void:
@@ -82,7 +86,32 @@ func _process(_delta: float) -> void:
 		})
 		print("GDSOCK sent databaseQuery err=", err)
 
-	if _saw_result and not _reconnected:
+	# Chain dataflow: ingest as an adapter (empty message_uuid7), then verify
+	# the timeline row via a DatabaseQuery — mirrors the test-runner chain suite.
+	if _sent_query and not _sent_ingest and since_connect > 1000:
+		_sent_ingest = true
+		_msg = "gdscript chain message %d" % Time.get_ticks_msec()
+		var ierr: int = _client.send_payload("messagePreProcess", {
+			"raw_message": {
+				"platform": "test",
+				"raw_message": _msg,
+				"user_uuid7": "",
+			},
+			"message_uuid7": "",
+			"audio": PackedByteArray(),
+			"audio_type": "",
+		})
+		print("GDSOCK ingested err=", ierr, " msg=", _msg)
+	if _sent_ingest and not _sent_chain_query and since_connect > 1300:
+		_sent_chain_query = true
+		var qerr: int = _client.send_payload("databaseQuery", {
+			"query_id": "gd_chain_check",
+			"sql": "SELECT pipeline_status FROM timeline_events WHERE platform = 'test' AND raw_message = '%s'" % _msg,
+			"params": [],
+		})
+		print("GDSOCK sent chain verify query err=", qerr)
+
+	if _chain_ok and not _reconnected:
 		_reconnected = true
 		var rerr: int = _client.reconnect()
 		print("GDSOCK reconnect err=", rerr, " still_open=",
@@ -93,13 +122,13 @@ func _process(_delta: float) -> void:
 		else:
 			_quit_on = Time.get_ticks_msec() + 50
 
-	if _saw_result and _reconnected and Time.get_ticks_msec() >= _quit_on:
+	if _chain_ok and _reconnected and Time.get_ticks_msec() >= _quit_on:
 		print("GDSOCK SUCCESS query_id=", _result_query_id,
 				" result=", _result_text, " rx=", _rx_count)
 		_done = true
 		_client.close()
 		get_tree().quit(0)
-	elif Time.get_ticks_msec() - _start_ms > 12000:
+	elif Time.get_ticks_msec() - _start_ms > 20000:
 		print("GDSOCK FAIL timeout rx=", _rx_count, " last_err=", _client.get_last_error())
 		_done = true
 		_client.close()
@@ -120,4 +149,8 @@ func _on_result(res: Dictionary) -> void:
 	_result_text = blob.get_string_from_utf8()
 	print("GDSOCK RX databaseQueryResult query_id=", _result_query_id,
 			" success=", res.get("success", false), " blob=", _result_text)
+	if _result_query_id == "gd_chain_check" and res.get("success", false) \
+			and blob.size() > 0:
+		_chain_ok = true
+		print("GDSOCK CHAIN_OK")
 	_saw_result = true

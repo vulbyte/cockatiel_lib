@@ -20,6 +20,8 @@
 #include <time.h>
 
 static int g_frames = 0;
+static int g_chain_verified = 0;
+static const char *g_chain_qid = "c_chain_check";
 
 static void on_container(cockatiel_client *client,
                          const cockatiel_protobuf_v1_Container *container,
@@ -33,6 +35,17 @@ static void on_container(cockatiel_client *client,
     switch (container->which_payload) {
         case COCKATIEL_PAYLOAD_LOG:
             printf("  log=\"%s\"", container->payload.log.log);
+            break;
+        case COCKATIEL_PAYLOAD_DATABASE_QUERY_RESULT:
+            printf("  query_id=\"%s\" success=%d blob=%d",
+                   container->payload.database_query_result.query_id,
+                   container->payload.database_query_result.success,
+                   (int)container->payload.database_query_result.result_blob.size);
+            if (strcmp(container->payload.database_query_result.query_id, g_chain_qid) == 0 &&
+                container->payload.database_query_result.success &&
+                container->payload.database_query_result.result_blob.size > 0) {
+                g_chain_verified = 1;
+            }
             break;
         case COCKATIEL_PAYLOAD_CONNECTION_REQUEST_RETURN:
             printf("  new_port=%u uuid7=%s",
@@ -105,6 +118,36 @@ int main(int argc, char **argv) {
     cockatiel_uuid7(uuid);
     printf("[OK] generated uuid7: %s\n", uuid);
 
+    /* ── Chain dataflow: ingest as an adapter (empty message_uuid7), then
+     *    verify the timeline row via a DatabaseQuery. ── */
+    char msg[128];
+    snprintf(msg, sizeof(msg), "C chain message %ld", (long)time(NULL));
+    cockatiel_protobuf_v1_MessagePreProcess pre = cockatiel_protobuf_v1_MessagePreProcess_init_zero;
+    pre.has_raw_message = true;
+    snprintf(pre.raw_message.platform, sizeof(pre.raw_message.platform), "test");
+    snprintf(pre.raw_message.raw_message, sizeof(pre.raw_message.raw_message), "%s", msg);
+    /* message_uuid7 stays "" so the engine ingests as a brand-new message. */
+    if (cockatiel_send(client, COCKATIEL_PAYLOAD_MESSAGE_PRE_PROCESS, &pre) != 0) {
+        fprintf(stderr, "ingest send failed\n");
+        cockatiel_disconnect(client);
+        return 1;
+    }
+    printf("[OK] ingested: %s\n", msg);
+
+    struct timespec ingest_wait = {.tv_sec = 0, .tv_nsec = 150000000L};
+    nanosleep(&ingest_wait, NULL);
+
+    cockatiel_protobuf_v1_DatabaseQuery q = cockatiel_protobuf_v1_DatabaseQuery_init_zero;
+    snprintf(q.query_id, sizeof(q.query_id), "%s", g_chain_qid);
+    snprintf(q.sql, sizeof(q.sql),
+             "SELECT pipeline_status FROM timeline_events WHERE platform = 'test' AND raw_message = '%s'", msg);
+    if (cockatiel_send(client, COCKATIEL_PAYLOAD_DATABASE_QUERY, &q) != 0) {
+        fprintf(stderr, "query send failed\n");
+        cockatiel_disconnect(client);
+        return 1;
+    }
+    printf("[OK] sent chain verify query\n");
+
     /* Pump frames for a couple of seconds, printing what arrives. */
     printf("receive loop (5s)...\n");
     pthread_t tid;
@@ -119,7 +162,8 @@ int main(int argc, char **argv) {
     pthread_join(tid, NULL);
 
     printf("[OK] received %d frame(s)\n", g_frames);
+    printf("[%s] chain dataflow\n", g_chain_verified ? "CHAIN_OK" : "CHAIN_FAILED");
     cockatiel_disconnect(client);
     printf("done.\n");
-    return 0;
+    return g_chain_verified ? 0 : 1;
 }
