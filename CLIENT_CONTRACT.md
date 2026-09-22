@@ -142,3 +142,27 @@ The supervisor forces each module's identity via `--name`; the engine rejects
 blank/`unnamed_module` identities and binds the JWT's `name` claim to the
 container's `module_name`. Clients must let the caller set the module name
 (CLI `--name`, config, or constructor) and never default to a blank name.
+## 11. Command system (engine-side)
+
+Modules subscribe to chat commands by sending a `Commands` payload
+(`commands_payload`) with their `Command` list (each: `command_name`,
+`command_flag`, `command_description`, `command_flags`). An EMPTY `commands`
+list = catch-all (the module receives every message, command or not).
+`alert_on_unknown_command` opts into the apology reply.
+
+The engine parses every raw message: if it starts with a registered flag it
+extracts `<command> <flags> <args>` — flag names ship WITHOUT the leading `-`,
+`-p 2` and `-p:2` both parse, a bare `-d` is boolean `true`, and flag values
+are validated against the owner's `FlagLimitType` (`ANY`/`OPTIONS`/`RANGE`).
+The parsed `Command` (with values embedded in `command_flags`) is attached to
+`ChatMessage.command`.
+
+Routing: a known command goes ONLY to the owning module + all catch-alls.
+Other messages keep the normal fanout. What a module should return depends on
+its position: pre-process can return anything, in-process must return a message,
+post-process can return anything. The engine's built-in `!help` lists all
+registered commands back to the chat.
+
+A client that owns commands must (a) send its `Commands` registration after
+auth, and (b) handle `MessagePreProcess` frames whose `raw_message.command`
+carries its command (using `command.command_flags` for the parsed flag values).
