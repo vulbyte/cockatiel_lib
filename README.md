@@ -18,7 +18,7 @@ pinned to `vulbyte/cockatiel_proto@0128454`.
 | Rust | `use cockatiel_client::CockatielClient;` | canonical: [`vulbyte/cockatiel_client-rs`](https://github.com/vulbyte/cockatiel_client-rs) | crate (prost) |
 | C# | `using Cockatiel;` + `PackageReference` | [`dotnet/Cockatiel.cs`](dotnet/Cockatiel.cs) | Google.Protobuf, `System.Net.WebSockets` |
 | C | `#include <cockatiel_lib.h>` + 1 cmake link line | [`c/cockatiel_lib.h`](c/cockatiel_lib.h) | protobuf-c, a WS lib (libwebsockets) |
-| C++ | `#include <cockatiel_lib.h>` | [`cpp11/cockatiel_lib.h`](cpp11/cockatiel_lib.h) | thin wrapper over the C lib |
+| C++ | `#include <cockatiel_lib.hpp>` | [`cpp11/cockatiel_lib.hpp`](cpp11/cockatiel_lib.hpp) | thin RAII wrapper over the C lib |
 | gdScript | `preload("res://cockatiel_lib.gd")` | [`gdscript/cockatiel_lib.gd`](gdscript/cockatiel_lib.gd) | Godot built-in `WebSocketPeer` |
 
 Python and Rust live in their standalone SDK repos (git-rev pinned by consumers,
