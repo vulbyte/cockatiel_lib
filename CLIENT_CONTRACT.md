@@ -82,9 +82,16 @@ client is a drop-in for any module position:
 | `prompt` | prompt |
 | `prompt_response` | promptResponse |
 | `audit_flag` | auditFlag |
+| `chat_message_rejected` | chatMessageRejected |
 
 A `ReceiveAny()` / "all" listener gets every decoded container; typed listeners
 get the active payload. Malformed frames are ignored, never crash the loop.
+
+`chat_message_rejected` is a module→engine audit record: a module that rejected
+a message reports the reason + the original raw message + what it became, so
+the engine can log it clearly and persist it as a searchable timeline event
+(`command = "chat_rejected"`). The message itself still flows as the module
+chose — the record is a log, not a pipeline stop.
 
 ## 5. Liveness — answer `AuthVerify`
 

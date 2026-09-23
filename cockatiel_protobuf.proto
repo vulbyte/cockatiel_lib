@@ -377,6 +377,19 @@ message AuditFlag {
   string origin = 3;        // the module that flagged it
 }
 
+message ChatMessageRejected {
+  /* 
+   * a module reports that it rejected a message. The engine logs it clearly
+   * (removing obscurity) and persists it as a timeline event so rejections are
+   * searchable; the message itself still flows as the module chose.
+   */
+  string message_uuid7 = 1;       // the pipeline message being rejected
+  ChatMessage message = 2;        // the ORIGINAL raw message (+ platform, user_uuid7)
+  string processed_message = 3;   // what it became (censored/held); empty = dropped
+  string reason = 4;              // why it was rejected, human-readable
+  string origin = 5;              // the module that rejected it
+}
+
 // ==========================================
 // MESSAGE PIPELINE (Refactored for DRY code)
 // ==========================================
@@ -502,5 +515,6 @@ message Container {
     Prompt prompt = 27;
     PromptResponse prompt_response = 28;
     AuditFlag audit_flag = 29;
+    ChatMessageRejected chat_message_rejected = 30;
   }
 }
