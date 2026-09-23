@@ -30,6 +30,7 @@ const PAYLOAD_FIELDS = [
   'prompt',
   'promptResponse',
   'auditFlag',
+  'chatMessageRejected',
 ];
 
 export class EngineError extends Error {
