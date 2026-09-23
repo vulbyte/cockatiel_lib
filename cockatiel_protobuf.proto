@@ -83,6 +83,9 @@ message Flag {
   float min_val = 4;
   float max_val = 5;
   repeated string options = 6;
+  /* Parsed value for this flag on a given command invocation (e.g. `-p 2`
+   * becomes value "2"; the engine strips the leading `-`). */
+  string value = 7;
 }
 
 message Command {
@@ -104,6 +107,11 @@ message Commands {
    * authed: add commands to the help registry
    */
   repeated Command commands = 1;
+  /* When true, a message that uses one of this module's flags with an
+   * UNREGISTERED command triggers the engine's apology reply to that chat
+   * ("sorry <user>, that command isn't valid, try '!help'"). An EMPTY
+   * `commands` list makes this module a catch-all (receives every message). */
+  bool alert_on_unknown_command = 2;
 }
 
 message Commendation {
@@ -229,6 +237,9 @@ message SendToPlatforms {
   string actor_platform = 6; // identity of the human who triggered the send
   string actor_handle = 7;   // platform handle of that actor
   string actor_uuid7 = 8;    // user DB uuid7 of that actor (when known)
+  /* Optional: target a single channel instead of every channel the adapter
+   * monitors (used for !help / invalid-command replies). */
+  string channel_id = 9;
 }
 
 // ==========================================
@@ -383,6 +394,10 @@ message ChatMessage {
   string user_uuid7 = 4;
   Command command = 5;
   UserData user_data = 6; 
+  /* The source channel this message came from (adapter-scoped: the Twitch
+   * channel / Kick channel / YouTube live chat id / Discord channel id), used
+   * to target engine replies (e.g. !help) back to the right channel. */
+  string channel_id = 7; 
 }
 
 message MessagePreProcess {
