@@ -32,6 +32,7 @@ struct cockatiel_client {
     int port;
     char path[64];
     int use_ssl;
+    char ca_filepath[512]; /* engine self-signed cert (COCKATIEL_TLS_CERT) */
 
     /* identity */
     char module_name[128];
@@ -527,6 +528,9 @@ static int create_context(cockatiel_client *c) {
     info.uid = -1;
     if (c->use_ssl) {
         info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+        if (c->ca_filepath[0]) {
+            info.client_ssl_ca_filepath = c->ca_filepath;
+        }
     }
     c->context = lws_create_context(&info);
     return c->context ? 0 : -1;
@@ -566,6 +570,22 @@ cockatiel_client *cockatiel_connect(const char *url, int pin,
 
     cockatiel_client *c = calloc(1, sizeof(*c));
     if (!c) return NULL;
+
+    /* TLS: when COCKATIEL_TLS_CERT is set, upgrade to wss:// and pin the
+     * engine's self-signed cert as the client CA (the engine only accepts WSS). */
+    char url_buf[256];
+    const char *tls_cert = getenv("COCKATIEL_TLS_CERT");
+    if (tls_cert && tls_cert[0]) {
+        if (strncmp(url, "wss://", 6) == 0) {
+            snprintf(url_buf, sizeof(url_buf), "%s", url);
+        } else if (strncmp(url, "ws://", 5) == 0) {
+            snprintf(url_buf, sizeof(url_buf), "wss://%s", url + 5);
+        } else {
+            snprintf(url_buf, sizeof(url_buf), "%s", url);
+        }
+        url = url_buf;
+        snprintf(c->ca_filepath, sizeof(c->ca_filepath), "%s", tls_cert);
+    }
 
     if (url_parse(url, c->host, &c->port, c->path, &c->use_ssl) != 0) {
         free(c);

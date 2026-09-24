@@ -2,13 +2,17 @@ package cockatiel_lib
 
 /*
 	Cockatiel chat-engine client for Odin (native stdlib only — no third-party
-	packages, no C FFI).
+	packages). TLS/WSS is an optional add-on bound directly to OpenSSL
+	(libssl/libcrypto) when COCKATIEL_TLS_CERT is set; with the env unset the
+	client stays fully native and uses plain ws:// like before.
 
 	Implements CLIENT_CONTRACT.md:
 	  - single-connection PIN -> JWT auth on ONE WebSocket (no two-phase / port hop)
 	  - hand-rolled protobuf wire codec covering the ENTIRE `Container` + all 23
 	    payload messages in the oneof (decode everything; encode what a module sends)
 	  - hand-rolled WebSocket (RFC 6455) over core:net TCP sockets
+	  - optional WSS (TLS 1.2/1.3) via OpenSSL, trusting the engine's self-signed
+	    cert given by COCKATIEL_TLS_CERT
 	  - automatic AuthVerify liveness answers inside the receive loop
 	  - reconnect carrying the stored JWT
 	  - PIN precedence: COCKATIEL_PIN env -> explicit pin param
@@ -18,6 +22,7 @@ package cockatiel_lib
 	    import "cockatiel_lib"
 */
 
+import "core:c"
 import "core:crypto"
 import "core:encoding/base64"
 import "core:fmt"
@@ -28,10 +33,61 @@ import "core:strings"
 import "core:time"
 
 // ============================================================================
+// TLS (WSS) — OpenSSL via foreign binding.
+// core:net has no TLS support, so when COCKATIEL_TLS_CERT is set we wrap the
+// TCP socket with OpenSSL's libssl/libcrypto (trusting the engine's self-signed
+// cert as the CA). When the env is unset none of this is used.
+// ============================================================================
+
+@(extra_linker_flags = "-L/usr/local/opt/openssl@3/lib -L/opt/homebrew/opt/openssl@3/lib")
+foreign import openssl { "system:ssl", "system:crypto" }
+
+@(default_calling_convention = "c")
+foreign openssl {
+	TLS_client_method             :: proc() -> rawptr ---
+	SSL_CTX_new                   :: proc(method: rawptr) -> rawptr ---
+	SSL_CTX_free                  :: proc(ctx: rawptr) ---
+	SSL_CTX_load_verify_locations :: proc(ctx: rawptr, cafile: cstring, capath: cstring) -> i32 ---
+	SSL_CTX_set_verify            :: proc(ctx: rawptr, mode: i32, cb: rawptr) ---
+	SSL_new                       :: proc(ctx: rawptr) -> rawptr ---
+	SSL_free                      :: proc(ssl: rawptr) ---
+	SSL_set_fd                    :: proc(ssl: rawptr, fd: i32) -> i32 ---
+	SSL_connect                   :: proc(ssl: rawptr) -> i32 ---
+	SSL_write                     :: proc(ssl: rawptr, buf: rawptr, num: i32) -> i32 ---
+	SSL_read                      :: proc(ssl: rawptr, buf: rawptr, num: i32) -> i32 ---
+	SSL_shutdown                  :: proc(ssl: rawptr) -> i32 ---
+	SSL_get_error                 :: proc(ssl: rawptr, ret: i32) -> i32 ---
+	ERR_get_error                 :: proc() -> u64 ---
+	ERR_error_string_n            :: proc(e: u64, buf: cstring, len: c.size_t) ---
+}
+
+SSL_VERIFY_PEER      :: 1
+SSL_ERROR_WANT_READ  :: 2
+SSL_ERROR_WANT_WRITE :: 3
+SSL_ERROR_ZERO_RETURN :: 6
+
+// Holds the live OpenSSL objects for one connection (SSL_CTX + SSL). Non-nil
+// only while a wss:// connection is up.
+Tls_Conn :: struct {
+	ctx: rawptr, // SSL_CTX*
+	ssl: rawptr, // SSL*
+}
+
+// Result of a single TLS read.
+Tls_Read_Status :: enum {
+	Ok,      // n > 0 bytes read
+	Eof,     // clean close_notify / peer closed
+	Timeout, // blocking socket timed out (SSL_ERROR_WANT_READ on SO_RCVTIMEO)
+	Error,
+}
+
+// ============================================================================
 // Protocol constants (see cockatiel_protobuf.proto)
 // ============================================================================
 
 VERSION :: 1
+// Plain ws:// default. When COCKATIEL_TLS_CERT is set the client upgrades this
+// (and any ws:// URL) to wss:// automatically and speaks TLS on the socket.
 DEFAULT_URL :: "ws://127.0.0.1:9734"
 
 DEFAULT_CONNECT_TIMEOUT :: 10 * time.Second
@@ -352,6 +408,9 @@ Client :: struct {
 	host:                  string,
 	port:                  int,
 	path:                  string,
+	use_tls:               bool,
+	tls_cert:              string,
+	tls:                   ^Tls_Conn,
 	module_name:           string,
 	module_instance_uuid7: string,
 	auth_token:            string,
@@ -375,6 +434,9 @@ destroy :: proc(c: ^Client) {
 	if c.connected {
 		disconnect(c)
 	}
+	if c.tls_cert != "" {
+		delete(c.tls_cert)
+	}
 	delete(c.handlers)
 	delete(c.on_any)
 }
@@ -384,6 +446,7 @@ destroy :: proc(c: ^Client) {
 // ----------------------------------------------------------------------------
 resolve_pin :: proc(explicit: i32) -> i32 {
 	env := env_get("COCKATIEL_PIN")
+	defer delete(env)
 	if env != "" {
 		if v, ok := strconv.parse_int(env, 10); ok && v > 0 {
 			return i32(v)
@@ -392,10 +455,10 @@ resolve_pin :: proc(explicit: i32) -> i32 {
 	return explicit
 }
 
-// Reads an environment variable into a stack buffer (no allocation).
+// Reads an environment variable into an owned string (allocated). The caller
+// must delete() the result. An unset/empty variable returns "".
 env_get :: proc(key: string) -> string {
-	buf: [4096]u8
-	return os.get_env_buf(buf[:], key)
+	return os.get_env_alloc(key, context.allocator)
 }
 
 // Loads a module-local `.env` (KEY=VALUE) into the process environment.
@@ -422,7 +485,9 @@ load_local_env :: proc() {
 		if len(k) == 0 {
 			continue
 		}
-		if env_get(k) == "" {
+		cur := env_get(k)
+		defer delete(cur)
+		if cur == "" {
 			os.set_env(k, v)
 		}
 	}
@@ -450,8 +515,26 @@ connect :: proc(
 		return false
 	}
 
-	if !parse_ws_url(url, &c.host, &c.port, &c.path) {
+	// WSS mode: COCKATIEL_TLS_CERT set + non-empty -> trust the engine's
+	// self-signed cert and force a TLS connection (ws_connect wraps the socket
+	// in TLS regardless of whether the URL says ws:// or wss://).
+	cert := env_get("COCKATIEL_TLS_CERT")
+	defer delete(cert)
+	if cert != "" {
+		if c.tls_cert != "" {
+			delete(c.tls_cert)
+		}
+		c.use_tls = true
+		c.tls_cert = strings.clone(cert)
+	}
+
+	url_ok, url_tls := parse_ws_url(url, &c.host, &c.port, &c.path)
+	if !url_ok {
 		c.last_error = fmt.aprintf("bad WebSocket URL: %s", url)
+		return false
+	}
+	if url_tls && !c.use_tls {
+		c.last_error = "wss:// requires COCKATIEL_TLS_CERT (self-signed trust anchor)"
 		return false
 	}
 
@@ -639,8 +722,12 @@ reconnect :: proc(c: ^Client) -> bool {
 		return false
 	}
 	if c.socket != {} {
+		if c.use_tls {
+			tls_close(c)
+		}
 		net.close(c.socket)
 	}
+	// ws_connect re-establishes the TLS layer when c.use_tls is set.
 	if !ws_connect(c, DEFAULT_CONNECT_TIMEOUT) {
 		return false
 	}
@@ -2497,15 +2584,18 @@ decode_timeline_event :: proc(b: []byte) -> (m: TimelineEvent) {
 // WebSocket transport (RFC 6455) over core:net TCP
 // ============================================================================
 
-// Parses "ws://host:port/path" into its parts.
-parse_ws_url :: proc(url: string, host: ^string, port: ^int, path: ^string) -> bool {
+// Parses "ws://host:port/path" or "wss://host:port/path" into its parts.
+// Returns ok and whether the scheme requested TLS.
+parse_ws_url :: proc(url: string, host: ^string, port: ^int, path: ^string) -> (ok: bool, tls: bool) {
 	rest := url
+	tls = false
 	if strings.has_prefix(rest, "ws://") {
 		rest = rest[len("ws://"):]
 	} else if strings.has_prefix(rest, "wss://") {
-		return false // TLS is out of scope for the native client
+		rest = rest[len("wss://"):]
+		tls = true
 	} else {
-		return false
+		return false, false
 	}
 	slash := strings.index_byte(rest, '/')
 	authority, p: string
@@ -2524,22 +2614,23 @@ parse_ws_url :: proc(url: string, host: ^string, port: ^int, path: ^string) -> b
 		port^ = 9734
 		host^ = authority
 	} else {
-		pn, ok := strconv.parse_int(authority[colon + 1:], 10)
-		if !ok || pn <= 0 || pn > 65535 {
-			return false
+		pn, ok2 := strconv.parse_int(authority[colon + 1:], 10)
+		if !ok2 || pn <= 0 || pn > 65535 {
+			return false, false
 		}
 		port^ = pn
 		host^ = authority[:colon]
 	}
 	if host^ == "" {
-		return false
+		return false, false
 	}
 	path^ = p
-	return true
+	return true, tls
 }
 
-// Opens a TCP socket to the client's host:port and performs the HTTP/1.1
-// upgrade handshake (RFC 6455). On success c.socket is the live WebSocket.
+// Opens a TCP socket to the client's host:port, optionally wraps it in TLS
+// (when c.use_tls is set), and performs the HTTP/1.1 upgrade handshake
+// (RFC 6455). On success c.socket is the live WebSocket (and c.tls the SSL).
 ws_connect :: proc(c: ^Client, timeout: time.Duration) -> bool {
 	sock, err := net.dial_tcp_from_hostname_with_port_override(c.host, c.port)
 	if err != nil {
@@ -2549,6 +2640,13 @@ ws_connect :: proc(c: ^Client, timeout: time.Duration) -> bool {
 	c.socket = sock
 	net.set_option(c.socket, .Receive_Timeout, timeout)
 	net.set_option(c.socket, .TCP_Nodelay, true)
+
+	if c.use_tls {
+		if !tls_connect(c, timeout) {
+			ws_close_socket(c)
+			return false
+		}
+	}
 
 	key16: [16]byte
 	crypto.rand_bytes(key16[:])
@@ -2568,8 +2666,10 @@ ws_connect :: proc(c: ^Client, timeout: time.Duration) -> bool {
 	strings.write_string(&sb, "\r\nSec-WebSocket-Version: 13\r\nOrigin: cockatiel-odin\r\n\r\n")
 
 	req := strings.to_string(sb)
-	if _, serr := net.send_tcp(c.socket, transmute([]u8)req); serr != .None {
-		c.last_error = fmt.aprintf("WebSocket upgrade send failed: %v", serr)
+	if !ws_send_all(c, transmute([]u8)req) {
+		if c.last_error == "" {
+			c.last_error = "WebSocket upgrade send failed"
+		}
 		ws_close_socket(c)
 		return false
 	}
@@ -2577,6 +2677,9 @@ ws_connect :: proc(c: ^Client, timeout: time.Duration) -> bool {
 	// Read the HTTP response headers.
 	headers := ws_read_headers(c)
 	if headers == nil {
+		if c.last_error == "" {
+			c.last_error = "WebSocket upgrade handshake failed (connection closed by server)"
+		}
 		ws_close_socket(c)
 		return false
 	}
@@ -2686,8 +2789,20 @@ ws_send_frame :: proc(c: ^Client, opcode: u8, payload: []byte) -> bool {
 		frame[idx + i] = payload[i] ~ key[i & 3]
 	}
 
-	if _, serr := net.send_tcp(c.socket, frame); serr != .None {
-		c.last_error = fmt.aprintf("WebSocket send failed: %v", serr)
+	if !ws_send_all(c, frame) {
+		return false
+	}
+	return true
+}
+
+// Sends all bytes on the live connection, routing through TLS when in wss mode.
+// Returns false and sets c.last_error on failure.
+ws_send_all :: proc(c: ^Client, data: []byte) -> bool {
+	if c.use_tls {
+		return tls_write_all(c, data)
+	}
+	if _, serr := net.send_tcp(c.socket, data); serr != .None {
+		c.last_error = fmt.aprintf("socket send failed: %v", serr)
 		return false
 	}
 	return true
@@ -2777,6 +2892,25 @@ read_exact :: proc(c: ^Client, buf: []byte, timeout_is_error: bool) -> bool {
 		if c.stop && !timeout_is_error {
 			return false
 		}
+		if c.use_tls {
+			n, status := tls_read_some(c, buf[off:])
+			switch status {
+			case .Ok:
+				off += n
+				continue
+			case .Eof:
+				c.connected = false
+				return false // graceful close
+			case .Timeout:
+				if timeout_is_error {
+					c.last_error = "receive timed out"
+					return false
+				}
+				continue
+			case .Error:
+				return false
+			}
+		}
 		n, err := net.recv_tcp(c.socket, buf[off:])
 		if err == .None {
 			if n == 0 {
@@ -2799,9 +2933,137 @@ read_exact :: proc(c: ^Client, buf: []byte, timeout_is_error: bool) -> bool {
 	return true
 }
 
-// Sends a best-effort WS close frame and closes the TCP socket.
+// ============================================================================
+// TLS transport — OpenSSL wrappers (only used when c.use_tls is set).
+// ============================================================================
+
+// Establishes the TLS layer on the already-dialed TCP socket, trusting the
+// engine's self-signed cert (c.tls_cert) as the CA. On success c.tls holds the
+// live SSL_CTX/SSL objects.
+tls_connect :: proc(c: ^Client, timeout: time.Duration) -> bool {
+	ctx := SSL_CTX_new(TLS_client_method())
+	if ctx == nil {
+		c.last_error = "SSL_CTX_new failed"
+		return false
+	}
+
+	cert_buf: [4096]u8
+	cn := min(len(c.tls_cert), len(cert_buf) - 1)
+	copy(cert_buf[:cn], c.tls_cert[:cn])
+	if SSL_CTX_load_verify_locations(ctx, cstring(&cert_buf[0]), nil) != 1 {
+		c.last_error = fmt.aprintf("SSL_CTX_load_verify_locations(%s) failed: %s", c.tls_cert, ssl_error_string())
+		SSL_CTX_free(ctx)
+		return false
+	}
+	// Verify the peer against the trusted self-signed cert. OpenSSL does not
+	// perform hostname matching here, which is fine for the engine's cert.
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nil)
+
+	ssl := SSL_new(ctx)
+	if ssl == nil {
+		c.last_error = "SSL_new failed"
+		SSL_CTX_free(ctx)
+		return false
+	}
+
+	if SSL_set_fd(ssl, i32(c.socket)) != 1 {
+		c.last_error = "SSL_set_fd failed"
+		SSL_free(ssl)
+		SSL_CTX_free(ctx)
+		return false
+	}
+
+	rc := SSL_connect(ssl)
+	if rc != 1 {
+		c.last_error = fmt.aprintf("TLS handshake failed: %s (err=%d)", ssl_error_string(), SSL_get_error(ssl, rc))
+		SSL_free(ssl)
+		SSL_CTX_free(ctx)
+		return false
+	}
+
+	conn := new(Tls_Conn)
+	conn.ctx = ctx
+	conn.ssl = ssl
+	c.tls = conn
+	return true
+}
+
+// Reads once from the TLS stream. A blocking socket with SO_RCVTIMEO reports a
+// timeout as SSL_ERROR_WANT_READ, matching the plain-TCP timeout behaviour.
+tls_read_some :: proc(c: ^Client, buf: []byte) -> (n: int, status: Tls_Read_Status) {
+	if len(buf) == 0 {
+		return 0, .Ok
+	}
+	ssl := c.tls.ssl
+	rc := SSL_read(ssl, &buf[0], i32(len(buf)))
+	if rc > 0 {
+		return int(rc), .Ok
+	}
+	if rc == 0 {
+		return 0, .Eof
+	}
+	switch SSL_get_error(ssl, rc) {
+	case SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE:
+		return 0, .Timeout
+	case SSL_ERROR_ZERO_RETURN:
+		return 0, .Eof
+	case:
+		c.last_error = fmt.aprintf("SSL_read failed: %s", ssl_error_string())
+		return 0, .Error
+	}
+}
+
+// Writes all bytes to the TLS stream (looping over SSL_write).
+tls_write_all :: proc(c: ^Client, data: []byte) -> bool {
+	ssl := c.tls.ssl
+	off := 0
+	for off < len(data) {
+		rc := SSL_write(ssl, &data[off], i32(len(data) - off))
+		if rc > 0 {
+			off += int(rc)
+			continue
+		}
+		e := SSL_get_error(ssl, rc)
+		if e == SSL_ERROR_WANT_READ || e == SSL_ERROR_WANT_WRITE {
+			continue
+		}
+		c.last_error = fmt.aprintf("SSL_write failed: %s", ssl_error_string())
+		return false
+	}
+	return true
+}
+
+// Tears down the TLS layer (best-effort close_notify + free). Safe to call
+// when not connected.
+tls_close :: proc(c: ^Client) {
+	if c.tls == nil {
+		return
+	}
+	SSL_shutdown(c.tls.ssl)
+	SSL_free(c.tls.ssl)
+	SSL_CTX_free(c.tls.ctx)
+	free(c.tls)
+	c.tls = nil
+}
+
+// Returns a human-readable OpenSSL error string (cloned; caller deletes).
+ssl_error_string :: proc() -> string {
+	e := ERR_get_error()
+	if e == 0 {
+		return "no error"
+	}
+	buf: [256]byte
+	ERR_error_string_n(e, cstring(&buf[0]), len(buf))
+	return strings.clone(string(cstring(&buf[0])))
+}
+
+// Sends a best-effort WS close frame, tears down TLS if present, and closes
+// the TCP socket.
 ws_close_socket :: proc(c: ^Client) {
 	ws_send_frame(c, OP_CLOSE, nil)
+	if c.use_tls {
+		tls_close(c)
+	}
 	net.close(c.socket)
 	c.connected = false
 }

@@ -5,7 +5,8 @@ no luarocks, no luasocket, no cjson, no protobuf/websocket libraries. The
 WebSocket transport is hand-rolled on raw libc sockets via the FFI, and the
 proto3 wire codec is hand-rolled in pure Lua (32-bit split 64-bit varints,
 length-delimited, fixed32/64, packed repeats) covering the entire `Container`
-plus all 23 payload messages. Implements `CLIENT_CONTRACT.md`.
+plus all 23 payload messages. Implements `CLIENT_CONTRACT.md`. WSS/TLS is
+supported via an optional OpenSSL FFI shim (see [TLS](#tls-wss-support)).
 
 ## Import
 
@@ -19,7 +20,7 @@ local Cockatiel = require("cockatiel_lib")
 local Cockatiel = require("cockatiel_lib")
 
 local client = Cockatiel.new({
-    url         = "ws://127.0.0.1:9734",   -- ws:// only (no TLS via FFI libc)
+    url         = "ws://127.0.0.1:9734",   -- upgraded to wss:// when COCKATIEL_TLS_CERT is set
     module_name = "my-module",             -- required (engine rejects blank/unnamed)
     pin         = 123456,                  -- optional; COCKATIEL_PIN env wins
     priority    = 100,
@@ -78,13 +79,33 @@ Payload names (the 23 `Container` oneof fields): `connectionRequest`,
 - **UUID7** — `Cockatiel.uuid7()` returns a time-ordered 32-hex-char id
   (RFC 9562 style, no dashes).
 
+## TLS / WSS support
+
+The engine only accepts `wss://`. When `COCKATIEL_TLS_CERT` points at the
+engine's self-signed cert PEM, the client automatically upgrades a `ws://` URL
+to `wss://` and wraps the raw socket in an OpenSSL client session loaded via
+`ffi.load("ssl")` (system OpenSSL 1.1+/3.x or LibreSSL; no extra link flags).
+The cert is loaded as the sole trust root (`SSL_CTX_load_verify_file` /
+`SSL_CTX_load_verify_locations`) and verified with `SSL_VERIFY_PEER` plus a
+hostname/SAN check via `SSL_set1_host`. I/O then goes through `SSL_read` /
+`SSL_write` instead of `recv`/`send`, and `reconnect()` re-establishes TLS on
+the fresh socket. When the env var is unset the plain `ws://` path is used
+unchanged and no libssl is loaded. An explicit `wss://` URL also enables TLS
+(and errors if no cert is available).
+
+```sh
+COCKATIEL_TLS_CERT=/path/to/cockatiel-cert.pem luajit app.lua
+```
+
 ## Run the live chain test
 
 Requires an engine on port 9738 with PIN `123456`, `cockatiel-test-runner`
-module auto-approved (it is hard-coded as trusted in the engine).
+module auto-approved (it is hard-coded as trusted in the engine). Against a
+WSS-only engine, set `COCKATIEL_TLS_CERT`:
 
 ```sh
-luajit chain_test.lua ws://127.0.0.1:9738 123456 1
+COCKATIEL_TLS_CERT=/path/to/cockatiel-cert.pem \
+  luajit chain_test.lua wss://127.0.0.1:9734 943072 1
 ```
 
 `chain_test.lua` connects as `cockatiel-test-runner`, runs the offline codec
@@ -107,9 +128,8 @@ shows `Auto-approving trusted module: cockatiel-test-runner`.
   (`COCKATIEL_PIN`). The chain test therefore runs the engine from an isolated
   working directory carrying its own `config.json` (port 9738) and `.env`
   (PIN 123456).
-- **Numeric IPv4 hosts only** for `ws://` URLs (`127.0.0.1`, etc.;
-  `localhost` is mapped to `127.0.0.1`). No TLS (`wss://`) — the FFI libc
-  socket layer has no TLS.
+- **Numeric IPv4 hosts only** for `ws://`/`wss://` URLs (`127.0.0.1`, etc.;
+  `localhost` is mapped to `127.0.0.1`).
 - **Endianness**: protobuf `float`/`double` are little-endian; the FFI
   pack/unpack byte-swaps on big-endian hosts.
 - The connection is single-threaded: use `poll()` from one place, or

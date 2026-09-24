@@ -10,6 +10,9 @@ extends RefCounted
 ##   - automatic AuthVerify liveness answers inside the receive loop
 ##   - reconnect carrying the stored JWT
 ##   - PIN precedence: COCKATIEL_PIN env -> opts.pin
+##   - TLS: when COCKATIEL_TLS_CERT is set (and non-empty), the URL is upgraded
+##     ws:// -> wss:// and the engine's self-signed cert is pinned as the trusted
+##     chain (strict verification; Godot 4.7 passes TLSOptions to connect_to_url)
 ##
 ## Import:  const Cockatiel = preload("res://cockatiel_lib.gd")
 
@@ -258,6 +261,7 @@ const _PAYLOAD_FIELDS := [
 # ---------------------------------------------------------------------------
 
 var _ws: WebSocketPeer = null
+var _tls: TLSOptions = null              # pinned engine cert; null when COCKATIEL_TLS_CERT unset
 var _url := ""
 var _module_name := ""
 var _module_instance_uuid7 := ""
@@ -299,7 +303,11 @@ func connect_to_engine(opts: Dictionary) -> int:
 		return ERR_INVALID_PARAMETER
 
 	_ws = WebSocketPeer.new()
-	var err := _ws.connect_to_url(_url)
+	_tls = _tls_options()
+	if OS.get_environment("COCKATIEL_TLS_CERT") != "" and _tls == null:
+		return ERR_CANT_OPEN  # _last_error set inside _tls_options()
+	_url = _upgrade_to_wss(_url)
+	var err := _ws.connect_to_url(_url, _tls)
 	if err != OK:
 		_last_error = "WebSocket connect failed: %d" % err
 		return err
@@ -385,7 +393,7 @@ func reconnect() -> int:
 		_last_error = "Cannot reconnect without an auth token"
 		return ERR_UNAUTHORIZED
 	var ws := WebSocketPeer.new()
-	var err := ws.connect_to_url(_url)
+	var err := ws.connect_to_url(_url, _tls)
 	if err != OK:
 		_last_error = "WebSocket connect failed: %d" % err
 		return err
@@ -535,6 +543,31 @@ func _wait_until(cb: Callable, timeout_ms: int) -> bool:
 			return true
 		OS.delay_msec(2)
 	return false
+
+## Returns TLSOptions pinning the engine's self-signed cert (from
+## COCKATIEL_TLS_CERT) as the trusted chain, with strict hostname verification.
+## Returns null when the env var is unset/empty. On a load failure sets
+## _last_error and returns null (caller fails the connect).
+func _tls_options() -> TLSOptions:
+	var cert_path := OS.get_environment("COCKATIEL_TLS_CERT")
+	if cert_path == "":
+		return null
+	var cert := X509Certificate.new()
+	var err := cert.load(cert_path)
+	if err != OK:
+		_last_error = "Failed to load TLS cert from %s: %d" % [cert_path, err]
+		return null
+	# Godot 4.7: TLSOptions.client(trusted_chain, common_name_override) — strict
+	# (accept_invalid_certificates=false). client_unsafe() is the lax variant.
+	return TLSOptions.client(cert, "")
+
+## Upgrades ws:// -> wss:// when TLS is in use (the engine only accepts WSS).
+func _upgrade_to_wss(url: String) -> String:
+	if OS.get_environment("COCKATIEL_TLS_CERT") == "":
+		return url
+	if url.begins_with("ws://"):
+		return "wss://" + url.substr(5)
+	return url
 
 func _load_local_env() -> void:
 	var path := "res://.env"

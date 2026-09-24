@@ -5,6 +5,9 @@
 --   * hand-rolled proto3 wire codec (pure Lua, 32-bit split 64-bit varints)
 --     covering the ENTIRE `Container` + all 23 payload messages
 --   * RFC6455 WebSocket transport on raw libc sockets via FFI (no deps)
+--   * optional WSS/TLS: wraps the socket in an OpenSSL client session via FFI
+--     (libssl) when COCKATIEL_TLS_CERT is set or the URL is wss://; the engine's
+--     self-signed cert is pinned as the trust root
 --   * single-connection PIN -> JWT auth (no two-phase / port hop)
 --   * automatic AuthVerify liveness answers inside the receive path
 --   * reconnect carrying the stored JWT
@@ -12,7 +15,8 @@
 --   * a time-ordered uuid7 generator
 --
 -- Runtime dependencies: LuaJIT + FFI only. No luarocks, no luasocket, no
--- cjson, no external protobuf/websocket libraries.
+-- cjson, no external protobuf/websocket libraries. TLS (wss://) additionally
+-- requires the system OpenSSL (libssl) at runtime via ffi.load("ssl").
 --
 -- Import:  local Cockatiel = require("cockatiel_lib")
 -- ============================================================================
@@ -49,6 +53,26 @@ int signal(int signum, void (*handler)(int));
 FILE *fopen(const char *path, const char *mode);
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int fclose(FILE *stream);
+
+/* OpenSSL (loaded lazily via ffi.load("ssl") when WSS is enabled) */
+typedef struct ssl_ctx_st SSL_CTX;
+typedef struct ssl_st SSL;
+const void *TLS_client_method(void);
+SSL_CTX *SSL_CTX_new(const void *method);
+void SSL_CTX_free(SSL_CTX *ctx);
+int SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile, const char *CApath);
+int SSL_CTX_load_verify_file(SSL_CTX *ctx, const char *CAfile);
+void SSL_CTX_set_verify(SSL_CTX *ctx, int mode, void *callback);
+SSL *SSL_new(SSL_CTX *ctx);
+int SSL_set_fd(SSL *ssl, int fd);
+int SSL_connect(SSL *ssl);
+int SSL_write(SSL *ssl, const void *buf, int num);
+int SSL_read(SSL *ssl, void *buf, int num);
+int SSL_get_error(const SSL *ssl, int ret);
+int SSL_shutdown(SSL *ssl);
+void SSL_free(SSL *ssl);
+int SSL_pending(const SSL *ssl);
+int SSL_set1_host(SSL *ssl, const char *hostname);
 ]]
 
 -- SIGPIPE = 13, SIG_IGN = 1: a write to a closed socket must not kill the VM.
@@ -1091,6 +1115,8 @@ function CockatielClient.new(opts)
     self.pin = opts.pin
 
     self.sock = nil
+    self._ssl = nil
+    self._tls = false
     self.connected = false
     self.last_error = ""
     self.auth_token = ""
@@ -1173,6 +1199,65 @@ function CockatielClient:_resolve_pin(opts)
 end
 
 -- ---------------------------------------------------------------------------
+-- TLS (OpenSSL via FFI) — optional WSS shim over the raw libc socket
+--
+-- When COCKATIEL_TLS_CERT is set (or the URL scheme is wss://), the client
+-- wraps the connected socket in an OpenSSL client session. The engine's
+-- self-signed cert PEM is loaded as the sole trust root (chain pinning) and
+-- the peer is verified against it; the connecting host is checked against the
+-- cert's SANs via SSL_set1_host. All I/O then goes through SSL_read/SSL_write.
+-- ---------------------------------------------------------------------------
+
+local SSL_VERIFY_PEER = 1
+local SSL_ERROR_WANT_READ = 2
+local SSL_ERROR_WANT_WRITE = 3
+local SSL_ERROR_ZERO_RETURN = 6
+
+local _SSL = nil
+local _TLS_CTX = nil
+
+local function tls_cert_path()
+    local p = os.getenv("COCKATIEL_TLS_CERT")
+    if p ~= nil and p ~= "" then
+        return p
+    end
+    return nil
+end
+
+-- Builds (once) a client SSL_CTX that trusts exactly the engine's self-signed
+-- cert. Returns true if TLS is available; errors when COCKATIEL_TLS_CERT is
+-- set but libssl or the cert cannot be loaded.
+local function load_tls()
+    local path = tls_cert_path()
+    if not path then
+        return false
+    end
+    if _TLS_CTX then
+        return true
+    end
+    local ok, ssl = pcall(ffi.load, "ssl")
+    if not ok or ssl == nil then
+        error("COCKATIEL_TLS_CERT is set but libssl could not be loaded (ffi.load('ssl'))")
+    end
+    local ctx = ssl.SSL_CTX_new(ssl.TLS_client_method())
+    if ctx == nil then
+        error("SSL_CTX_new failed (COCKATIEL_TLS_CERT is set)")
+    end
+    ssl.SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nil)
+    local r = ssl.SSL_CTX_load_verify_file(ctx, path)
+    if r ~= 1 then
+        r = ssl.SSL_CTX_load_verify_locations(ctx, path, nil)
+    end
+    if r ~= 1 then
+        ssl.SSL_CTX_free(ctx)
+        error("failed to load TLS trust root from COCKATIEL_TLS_CERT='" .. path .. "'")
+    end
+    _SSL = ssl
+    _TLS_CTX = ctx
+    return true
+end
+
+-- ---------------------------------------------------------------------------
 -- Socket transport
 -- ---------------------------------------------------------------------------
 
@@ -1186,7 +1271,7 @@ function CockatielClient:_parse_url()
     if scheme == "ws" then
         port = 80
     elseif scheme == "wss" then
-        error("wss/TLS is not supported (FFI libc has no TLS) — use ws://")
+        port = 443
     else
         error("unsupported scheme: " .. scheme)
     end
@@ -1202,7 +1287,7 @@ function CockatielClient:_parse_url()
     if host == "localhost" then
         host = "127.0.0.1"
     end
-    return host, port
+    return host, port, scheme
 end
 
 function CockatielClient:_tcp_connect(host, port)
@@ -1250,16 +1335,102 @@ function CockatielClient:_tcp_connect(host, port)
 end
 
 function CockatielClient:_close_socket()
+    if self._ssl then
+        pcall(function()
+            _SSL.SSL_shutdown(self._ssl)
+        end)
+        _SSL.SSL_free(self._ssl)
+        self._ssl = nil
+    end
     if self.sock then
         C.close(self.sock)
         self.sock = nil
     end
 end
 
+-- Decides whether the connection must be wrapped in TLS: either the URL says
+-- wss:// or COCKATIEL_TLS_CERT is set (the engine only accepts WSS, so a plain
+-- ws:// URL is silently upgraded when the env var is present). No-op otherwise,
+-- keeping the plain ws:// path byte-for-byte unchanged.
+function CockatielClient:_prepare_tls(scheme)
+    self._tls = false
+    if scheme == "wss" or tls_cert_path() ~= nil then
+        load_tls()
+        self._tls = true
+    end
+end
+
+-- Wraps the already-connected raw socket in an OpenSSL client session: creates
+-- an SSL object from the pinned-CA context, attaches the fd, verifies the
+-- host, and runs the handshake. On failure the socket is closed and an error
+-- is raised. The raw fd stays owned by the socket; SSL_free/SSL_shutdown happen
+-- in _close_socket.
+function CockatielClient:_tls_connect(host)
+    local ssl = _SSL.SSL_new(_TLS_CTX)
+    if ssl == nil then
+        self:_close_socket()
+        error("SSL_new failed")
+    end
+    if _SSL.SSL_set_fd(ssl, self.sock) ~= 1 then
+        _SSL.SSL_free(ssl)
+        self:_close_socket()
+        error("SSL_set_fd failed")
+    end
+    -- Non-fatal: if the host check can't be armed, chain pinning alone still
+    -- constrains the peer to exactly the engine's self-signed root.
+    _SSL.SSL_set1_host(ssl, host)
+    local r = _SSL.SSL_connect(ssl)
+    if r ~= 1 then
+        local err = _SSL.SSL_get_error(ssl, r)
+        _SSL.SSL_free(ssl)
+        self:_close_socket()
+        error("SSL_connect to " .. host .. " failed (OpenSSL error " .. err .. ", errno " .. ffi.errno() .. ")")
+    end
+    self._ssl = ssl
+end
+
 -- Returns a chunk of data, nil on timeout, "" on EOF/closed.
 function CockatielClient:_recv_some(timeout_ms)
     if not self.sock then
         return ""
+    end
+    if self._ssl then
+        -- TLS: read through OpenSSL. SSL_pending() gates re-entry so data
+        -- already decrypted into the SSL record buffer is drained before we
+        -- select() on the raw fd again (a TLS record can be buffered internally
+        -- even when the socket has no more bytes).
+        local deadline = now_ms() + timeout_ms
+        local tbuf = ffi.new("char[65536]")
+        while true do
+            if _SSL.SSL_pending(self._ssl) == 0 then
+                local remaining = deadline - now_ms()
+                if remaining <= 0 then
+                    return nil
+                end
+                local fds = ffi.new("struct fd_set")
+                ffi.fill(fds, ffi.sizeof(fds), 0)
+                fds.fds_bits[math.floor(self.sock / 32)] = bit.lshift(1, bit.band(self.sock, 31))
+                local tv = ffi.new("struct timeval", math.floor(remaining / 1000), (remaining % 1000) * 1000)
+                local r = C.select(self.sock + 1, fds, nil, nil, tv)
+                if r <= 0 then
+                    return nil
+                end
+            end
+            local n = _SSL.SSL_read(self._ssl, tbuf, 65536)
+            if n > 0 then
+                return ffi.string(tbuf, n)
+            end
+            local err = _SSL.SSL_get_error(self._ssl, n)
+            if n == 0 or err == SSL_ERROR_ZERO_RETURN then
+                return ""
+            end
+            if err ~= SSL_ERROR_WANT_READ and err ~= SSL_ERROR_WANT_WRITE then
+                return nil
+            end
+            if now_ms() >= deadline then
+                return nil
+            end
+        end
     end
     local fds = ffi.new("struct fd_set")
     ffi.fill(fds, ffi.sizeof(fds), 0)
@@ -1288,6 +1459,35 @@ end
 function CockatielClient:_send_bytes(data)
     if not self.sock then
         return false
+    end
+    if self._ssl then
+        -- TLS: write through SSL_write. The Lua string is copied into an FFI
+        -- buffer once so a partial SSL_write can continue from an offset.
+        local len = #data
+        if len == 0 then
+            return true
+        end
+        local sbuf = ffi.new("char[?]", len)
+        ffi.copy(sbuf, data, len)
+        local pos = 0
+        local deadline = now_ms() + self.timeout_ms
+        while pos < len do
+            local n = _SSL.SSL_write(self._ssl, sbuf + pos, len - pos)
+            if n > 0 then
+                pos = pos + n
+            else
+                local err = _SSL.SSL_get_error(self._ssl, n)
+                if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE then
+                    if now_ms() >= deadline then
+                        return false
+                    end
+                    sleep_ms(1)
+                else
+                    return false
+                end
+            end
+        end
+        return true
     end
     local pos = 1
     local len = #data
@@ -1514,7 +1714,7 @@ function CockatielClient:connect(opts)
     if self.module_name == "" or self.module_name == "unnamed_module" then
         error("module_name must be set (engine rejects blank/unnamed identities)")
     end
-    local host, port = self:_parse_url()
+    local host, port, scheme = self:_parse_url()
     local pin = self:_resolve_pin(opts)
     local pp = self.process_position
     if type(pp) == "string" then
@@ -1522,6 +1722,10 @@ function CockatielClient:connect(opts)
     end
 
     self:_tcp_connect(host, port)
+    self:_prepare_tls(scheme)
+    if self._tls then
+        self:_tls_connect(host)
+    end
     self._rxbuf = ""
     self:_ws_handshake(host, port)
 
@@ -1693,8 +1897,12 @@ function CockatielClient:reconnect()
     if self.auth_token == "" then
         error("cannot reconnect without an auth token")
     end
-    local host, port = self:_parse_url()
+    local host, port, scheme = self:_parse_url()
     self:_tcp_connect(host, port)
+    self:_prepare_tls(scheme)
+    if self._tls then
+        self:_tls_connect(host)
+    end
     self._rxbuf = ""
     self:_ws_handshake(host, port)
     local pp = self.process_position

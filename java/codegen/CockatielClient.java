@@ -4,10 +4,16 @@
 // every import at column 0. Edit here and re-run the script, or edit
 // Cockatiel.java directly — either stays in sync with this layout.
 import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
@@ -110,7 +116,12 @@ public static final class CockatielClient implements AutoCloseable {
         WebSocket socket = null;
         try {
             BlockingQueue<Object> queue = new LinkedBlockingQueue<>();
-            HttpClient http = HttpClient.newHttpClient();
+            SSLContext ssl = sslContextFromEnv();
+            HttpClient.Builder httpBuilder = HttpClient.newBuilder();
+            if (ssl != null) {
+                httpBuilder.sslContext(ssl);
+            }
+            HttpClient http = httpBuilder.build();
             socket = http.newWebSocketBuilder()
                     .buildAsync(URI.create(buildUrl(opts)), new FrameListener(queue))
                     .get(CONNECT_TIMEOUT_S, TimeUnit.SECONDS);
@@ -518,7 +529,45 @@ public static final class CockatielClient implements AutoCloseable {
     }
 
     private static String buildUrl(CockatielClientOptions opts) {
-        return "ws://" + opts.ip + ":" + opts.port;
+        String scheme = tlsEnabled() ? "wss://" : "ws://";
+        return scheme + opts.ip + ":" + opts.port;
+    }
+
+    /** True when the engine expects wss:// with the self-signed cert in COCKATIEL_TLS_CERT. */
+    private static boolean tlsEnabled() {
+        String cert = System.getenv("COCKATIEL_TLS_CERT");
+        return cert != null && !cert.trim().isEmpty();
+    }
+
+    /**
+     * Build an SSLContext that trusts the engine's self-signed cert (path in
+     * COCKATIEL_TLS_CERT). Returns null when the env var is unset/empty so the
+     * caller keeps the plain ws:// behavior and the default HttpClient.
+     */
+    private static SSLContext sslContextFromEnv() {
+        String pemPath = System.getenv("COCKATIEL_TLS_CERT");
+        if (pemPath == null || pemPath.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            try (FileInputStream in = new FileInputStream(pemPath)) {
+                Certificate cert = cf.generateCertificate(in);
+                KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+                ks.load(null, null);
+                ks.setCertificateEntry("cockatiel-engine", cert);
+                TrustManagerFactory tmf =
+                        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+                tmf.init(ks);
+                SSLContext ctx = SSLContext.getInstance("TLS");
+                ctx.init(null, tmf.getTrustManagers(), null);
+                return ctx;
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to load engine TLS cert from COCKATIEL_TLS_CERT=" + pemPath + ": "
+                            + e.getMessage(), e);
+        }
     }
 
     private static Map<Class<?>, BiConsumer<Container.Builder, Object>>

@@ -2,9 +2,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Security;
 using System.Net.WebSockets;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
@@ -11411,6 +11413,7 @@ public sealed class CockatielClient : IDisposable
         LoadDotEnv();
 
         var ws = new ClientWebSocket();
+        ConfigureTls(ws);
         await ws.ConnectAsync(BuildUrl(opts), ct);
 
         var pin = ResolvePin(opts);
@@ -11526,6 +11529,7 @@ public sealed class CockatielClient : IDisposable
         // one: the engine's reconnect path verifies the token against the
         // still-alive session, so it must exist when the reauth lands.
         var ws = new ClientWebSocket();
+        ConfigureTls(ws);
         await ws.ConnectAsync(BuildUrl(_opts), ct);
 
         // The engine requires the FIRST message on a fresh socket to be a
@@ -11653,7 +11657,56 @@ public sealed class CockatielClient : IDisposable
         ModuleInstanceUuid7 = _instanceUuid7,
     };
 
-    private static Uri BuildUrl(CockatielClientOptions opts) => new($"ws://{opts.Ip}:{opts.Port}");
+    private static readonly object _tlsCertLock = new();
+    private static X509Certificate2? _tlsPinnedCert;
+
+    /// <summary>
+    /// The engine's self-signed cert to pin, loaded once from COCKATIEL_TLS_CERT.
+    /// Null when the env var is unset/blank (plain ws:// + default validation).
+    /// </summary>
+    private static X509Certificate2? GetTlsPinnedCert()
+    {
+        var existing = _tlsPinnedCert;
+        if (existing is not null) return existing;
+
+        var path = Environment.GetEnvironmentVariable("COCKATIEL_TLS_CERT");
+        if (string.IsNullOrWhiteSpace(path)) return null;
+
+        lock (_tlsCertLock)
+        {
+            if (_tlsPinnedCert is not null) return _tlsPinnedCert;
+            if (!File.Exists(path))
+                throw new InvalidOperationException($"COCKATIEL_TLS_CERT points to a missing file: {path}");
+            _tlsPinnedCert = X509Certificate2.CreateFromPemFile(path);
+            return _tlsPinnedCert;
+        }
+    }
+
+    /// <summary>
+    /// Trust the engine's self-signed cert by pinning its thumbprint (see
+    /// <see cref="TlsValidationCallback"/>). No-op when COCKATIEL_TLS_CERT is
+    /// unset/blank, leaving the default certificate validation untouched.
+    /// </summary>
+    private static void ConfigureTls(ClientWebSocket ws)
+    {
+        var pinned = GetTlsPinnedCert();
+        if (pinned is null) return;
+        ws.Options.RemoteCertificateValidationCallback = TlsValidationCallback;
+    }
+
+    private static bool TlsValidationCallback(object? sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
+    {
+        var pinned = GetTlsPinnedCert();
+        if (pinned is null) return sslPolicyErrors == SslPolicyErrors.None;
+        if (certificate is null) return false;
+        return string.Equals(certificate.GetCertHashString(), pinned.GetCertHashString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Uri BuildUrl(CockatielClientOptions opts)
+    {
+        var scheme = GetTlsPinnedCert() is not null ? "wss" : "ws";
+        return new Uri($"{scheme}://{opts.Ip}:{opts.Port}");
+    }
 
     private static int ResolvePin(CockatielClientOptions opts)
     {

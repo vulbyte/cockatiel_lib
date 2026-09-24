@@ -12,6 +12,10 @@ hand-written **protobuf wire codec** (proto3, package
 - automatic `AuthVerify` liveness answers inside the receive loop
 - `reconnect()` on a fresh socket carrying the stored JWT
 - PIN precedence: `COCKATIEL_PIN` env → `opts.pin`
+- TLS: when `COCKATIEL_TLS_CERT` is set (and non-empty), the URL is upgraded
+  `ws://` → `wss://` and the engine's self-signed cert is pinned as the trusted
+  chain (strict verification). Godot 4.7 passes `TLSOptions` as the second
+  argument to `WebSocketPeer.connect_to_url(url, tls)`.
 
 ## One-line import
 
@@ -32,7 +36,7 @@ func _ready() -> void:
     client = Cockatiel.new()
     # PIN is read from COCKATIEL_PIN (env) first, then opts.pin.
     var err := client.connect_to_engine({
-        "url": "ws://127.0.0.1:9734",
+        "url": "ws://127.0.0.1:9734",  # auto-upgraded to wss:// when COCKATIEL_TLS_CERT is set
         "module_name": "my-module",          # engine rejects blank/unnamed
         "process_position": 3,               # 1=preprocess 2=inprocess 3=postprocess 4=connection
         "priority": 100,
@@ -80,11 +84,15 @@ when it receives the engine's `DatabaseQueryResult` reply.
    ./target/debug/cockatiel-engine-rs > /tmp/cockatiel_engine.log 2>&1 &
    ```
 
-2. Run the test, exporting the engine's PIN so the client picks it up:
+2. Run the test, exporting the engine's PIN and TLS cert so the client picks
+   them up (the engine only accepts `wss://`; without the cert the client stays
+   on `ws://` and the engine rejects it):
 
    ```sh
    cd /path/to/cockatiel_lib/gdscript
-   COCKATIEL_PIN=849820 godot --headless --path . --quit-after 1500
+   COCKATIEL_PIN=849820 \
+   COCKATIEL_TLS_CERT=/path/to/cockatiel_engine-rs/tls/cockatiel-cert.pem \
+   godot --headless --path . --quit-after 1500
    ```
 
    Exit code `0` = PASS, `1` = FAIL. The engine log should show

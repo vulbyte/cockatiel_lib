@@ -1,3 +1,4 @@
+import fs from 'fs';
 import WebSocket from 'ws';
 const PROTOCOL_VERSION = 1;
 
@@ -32,6 +33,34 @@ const PAYLOAD_FIELDS = [
   'auditFlag',
   'chatMessageRejected',
 ];
+
+/**
+ * Build the WebSocket for a given engine URL. When `COCKATIEL_TLS_CERT` is set
+ * (and non-empty), connect via `wss://` and pin the given PEM certificate so a
+ * self-signed engine cert is accepted. Falls back to plain `ws://` when the env
+ * var is unset or the cert can't be read.
+ *
+ * @param {string} url Engine URL (e.g. "ws://127.0.0.1:9734" or already "wss://")
+ * @returns {WebSocket}
+ */
+function createEngineSocket(url) {
+  const cert = process.env.COCKATIEL_TLS_CERT;
+  if (cert) {
+    let ca;
+    try {
+      ca = cert.includes('-----BEGIN') ? cert : fs.readFileSync(cert, 'utf8');
+    } catch (e) {
+      console.warn(`[cockatiel] could not read TLS cert '${cert}': ${e.message}; falling back to ws://`);
+    }
+    if (ca) {
+      return new WebSocket(url.replace(/^ws:\/\//, 'wss://'), {
+        ca,
+        rejectUnauthorized: true,
+      });
+    }
+  }
+  return new WebSocket(url);
+}
 
 export class EngineError extends Error {
   constructor(message) {
@@ -179,8 +208,7 @@ export class EngineConnection {
     if (!this._authToken) {
       throw new EngineError('Cannot reconnect without an auth token');
     }
-    const url = this.ws.url;
-    const newWs = new WebSocket(url);
+    const newWs = createEngineSocket(this.ws.url);
     await new Promise((resolve, reject) => {
       newWs.once('open', resolve);
       newWs.once('error', (e) => reject(new EngineError(`WebSocket error: ${e.message}`)));
@@ -230,7 +258,7 @@ export async function connectToEngine(opts, pb) {
   const pin = opts.pin != null ? opts.pin : (process.env.COCKATIEL_PIN != null ? parseInt(process.env.COCKATIEL_PIN, 10) : 0);
   const requestedUuid = opts.moduleInstanceUuid7 || '';
 
-  const ws = new WebSocket(opts.url);
+  const ws = createEngineSocket(opts.url);
   await new Promise((resolve, reject) => {
     ws.once('open', resolve);
     ws.once('error', (e) => reject(new EngineError(`WebSocket error: ${e.message}`)));
