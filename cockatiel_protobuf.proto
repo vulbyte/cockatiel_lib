@@ -480,6 +480,31 @@ message TimelineEvent {
 // THE ROOT CONTAINER ENVELOPE (if is not in this container, reject the message!)
 // ==========================================
 
+message PredictionUpdate {
+  /* 
+   * expected behavior: 
+   * unauthed: sever connection immediately
+   * authed: engine: relay this to every connected module (display windows).
+   *   module: (brain) send after each state change so displays re-render.
+   *   The brain owns prediction state; this payload is its projection.
+   */
+  string prediction_id = 1;
+  string prompt = 2;
+  string side_left_label = 3;   // default "Yes"
+  string side_right_label = 4;  // default "No"
+  int64 side_left_total = 5;    // score bet on the left side
+  int64 side_right_total = 6;   // score bet on the right side
+  int64 pot = 7;
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_OPEN = 1;
+    STATUS_RESOLVED = 2;
+    STATUS_CANCELLED = 3;
+  }
+  Status status = 8;
+  string winner_side = 9;       // "left" | "right" when RESOLVED
+}
+
 message Container {
   /* 
    * expected behavior: 
@@ -516,5 +541,6 @@ message Container {
     PromptResponse prompt_response = 28;
     AuditFlag audit_flag = 29;
     ChatMessageRejected chat_message_rejected = 30;
+    PredictionUpdate prediction_update = 31;
   }
 }

@@ -553,6 +553,37 @@ message TimelineEvent {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PREDICTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+// A projection of the predictions module's in-memory state, pushed to every
+// connected module after each change so display windows can re-render a live
+// left/right bar. The brain owns the state; this payload is read-only data.
+
+message PredictionUpdate {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: engine: relay to every connected module. module: (brain) send after
+   *   each state change; (display) re-render from the totals and status.
+   */
+  string prediction_id = 1;
+  string prompt = 2;
+  string side_left_label = 3;   // default "Yes"
+  string side_right_label = 4;  // default "No"
+  int64 side_left_total = 5;    // score bet on the left side
+  int64 side_right_total = 6;   // score bet on the right side
+  int64 pot = 7;
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_OPEN = 1;
+    STATUS_RESOLVED = 2;
+    STATUS_CANCELLED = 3;
+  }
+  Status status = 8;
+  string winner_side = 9;       // "left" | "right" when RESOLVED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // THE ROOT CONTAINERS
 // ─────────────────────────────────────────────────────────────────────────────
 //
@@ -590,6 +621,7 @@ message ContainerForModule {
     ModuleControlResult module_control_result = 26; // reply to your module_control
     Prompt prompt = 27;                // a question for the user
     PromptResponse prompt_response = 28;// your answer to an earlier prompt
+    PredictionUpdate prediction_update = 31; // live prediction bar state
   }
   // Tag 2 was never used in v1. `connection_request` (7) is engine-INBOUND only —
   // a module asks to join a stage, the engine answers with 8 — so the engine must
@@ -624,6 +656,7 @@ message ContainerForEngine {
     PromptResponse prompt_response = 28;   // your answer to an earlier prompt
     AuditFlag audit_flag = 29;         // hold a message for moderator review
     ChatMessageRejected chat_message_rejected = 30; // record a rejection; NOT a veto
+    PredictionUpdate prediction_update = 31; // publish prediction bar state
   }
   // Reserved: `auth_new` (10) is engine-issued, so a module is never sent one and
   // must not be able to ask for a credential rotation. The stage messages (13-15),
