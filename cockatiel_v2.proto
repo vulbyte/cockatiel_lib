@@ -1,0 +1,632 @@
+syntax = "proto3";
+package cockatiel_protobuf.v2;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COCKATIEL PROTOCOL v2
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// WHAT CHANGED FROM v1
+//   * One symmetric `Container` became TWO containers split by DIRECTION:
+//     `ContainerForModule` (engine -> module) and `ContainerForEngine`
+//     (module -> engine). v1 advertised every payload to every peer, which told
+//     implementers they had authority they did not have (a module was handed
+//     `database_query` and `module_control_delete`) and gave no guidance on what
+//     to ignore. In v2 a peer cannot EXPRESS a payload in the container
+//     addressed to it, and a receiver decoding the direction-appropriate
+//     container silently drops anything it should never receive. Direction is a
+//     type-level contract, NOT a wire-level boundary: both containers reuse
+//     header field numbers and several oneof tags, so the bytes are identical
+//     and only the generated type a side encodes/decodes establishes direction.
+//   * The pipeline stage is still the MESSAGE TYPE (see "MESSAGE PIPELINE"),
+//     so there is no behavioural change to how messages advance.
+//   * Every payload v1 could actually carry is still carried, on the SAME tag
+//     number where the type is unchanged. See the tag tables on each container.
+//
+// COMPATIBILITY
+//   `version` (field 1 on both containers) identifies the protocol family:
+//   v1 sends 1, v2 sends 2. A peer MUST reject a `version` it does not speak
+//   rather than guessing — v1 and v2 share several tag numbers, and the payloads
+//   on them are not all the same shape.
+//
+//   Tag numbers are stable within a version and are NEVER reused for a
+//   different type. A slot dropped in v1 is `reserved` in v2 so a later version
+//   cannot silently repurpose it against an old peer.
+//
+//   EXACTLY ONE nested-field deviation from v1 exists, so v2 is NOT blanket
+//   byte-compatible: `ChatMessageRejected.processed_message` (field 3) became
+//   `optional string`. It is wire-compatible (both are length-delimited) but
+//   changes presence semantics — in v1 an empty string meant "dropped", in v2
+//   UNSET means "dropped" and empty means "became empty". Every other field of
+//   every shared message is identical to v1 in number and in wire type.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ==========================================
+// ENUMS (Strict type safety instead of strings)
+// ==========================================
+
+enum ProcessPosition {
+  PROCESS_POSITION_UNSPECIFIED = 0;
+  PROCESS_POSITION_PREPROCESS = 1;
+  PROCESS_POSITION_INPROCESS = 2;
+  PROCESS_POSITION_POSTPROCESS = 3;
+  PROCESS_POSITION_CONNECTION = 4;
+}
+
+enum FlagLimitType {
+  FLAG_LIMIT_TYPE_UNSPECIFIED = 0;
+  FLAG_LIMIT_TYPE_ANY = 1;
+  FLAG_LIMIT_TYPE_OPTIONS = 2;
+  FLAG_LIMIT_TYPE_RANGE = 3;
+}
+
+enum PlatformSendLevel {
+  PLATFORM_SEND_LEVEL_UNSPECIFIED = 0;
+  PLATFORM_SEND_LEVEL_SELF = 1;
+  PLATFORM_SEND_LEVEL_OTHERS = 2;
+  PLATFORM_SEND_LEVEL_ALL = 3;
+}
+
+enum EventCategory {
+  EVENT_CATEGORY_UNSPECIFIED = 0;
+  EVENT_CATEGORY_LOG = 1;
+  EVENT_CATEGORY_WARNING = 2;
+  EVENT_CATEGORY_ERROR = 3;
+  EVENT_CATEGORY_SYSTEM = 4;
+  EVENT_CATEGORY_USER_MESSAGE = 5;
+}
+
+// ==========================================
+// CORE DATA STRUCTURES
+// ==========================================
+
+message AuthNew {
+  /* expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: if engine: do nothing. if module: adopt the new token. The old token
+   *         is rejected after a short grace period, so a module must switch over
+   *         promptly rather than waiting for a reconnect.
+   */
+  string new_auth = 1;
+}
+
+message AuthVerify {
+  /*
+   * expected behavior:
+   * unauthed: if the auth is valid, handle it
+   * authed: if module: do nothing; if engine: check if auth is valid and if so continue. if not valid, sever the connection
+   */
+  string cur_auth = 1;
+}
+
+message Ban {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: apply the ban if the actor has permission (i.e. admin/owner)
+   */
+  string commender_uuid7 = 1;
+  string commendee_uuid7 = 2;
+  bool unbanned = 3;
+  string reason = 4;
+  string raw_message = 5;
+  repeated string appeals = 6;
+}
+
+message Flag {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: do nothing
+   */
+  string flag_name = 1;
+  string flag_description = 2;
+  FlagLimitType limiting_type = 3;
+  // Stays `float`, not `double`: v1 uses float, which is wire type fixed32.
+  // A `double` here would be fixed64 and a v1 peer would silently drop both.
+  float min_val = 4;
+  float max_val = 5;
+  repeated string options = 6;
+  /* Parsed value for this flag on a given command invocation (e.g. `-p 2`
+   * becomes value "2"; the engine strips the leading `-`). */
+  string value = 7;
+}
+
+message Command {
+  /* expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: a standalone command invocation, sent OUTSIDE of any chat message
+   *         (e.g. from the TUI or a module acting on operator input). The engine
+   *         resolves the owning module via (command_flag, command_name) and
+   *         delivers it as a MessagePreProcess whose origin is the sender's
+   *         module identity. An unregistered command is logged and ignored.
+   *
+   *         This is the single-command form; `Commands` is the bulk registration.
+   */
+  string command_name = 1;        // the name being invoked
+  string command_flag = 2;        // the flag it is invoked under
+  string command_description = 3; // human-readable, for menus/help
+  repeated Flag command_flags = 4;// structured flags
+}
+
+message Commands {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: add commands to the help registry
+   */
+  repeated Command commands = 1;
+  /* When true, a message that uses one of this module's flags with an
+   * UNREGISTERED command triggers the engine's apology reply to that chat
+   * ("sorry <user>, that command isn't valid, try '!help'"). An EMPTY
+   * `commands` list makes this module a catch-all (receives every message). */
+  bool alert_on_unknown_command = 2;
+}
+
+message Commendation {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: add the commendation to the user's profile
+   */
+  string commender_uuid7 = 1;
+  string commendee_uuid7 = 2;
+  string raw_message = 3;
+  string reason = 4;
+}
+
+message Reprimand {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: add the reprimand to the user's profile
+   */
+  string commender_uuid7 = 1;
+  string commendee_uuid7 = 2;
+  string raw_message = 3;
+  string reason = 4;
+}
+
+message UserStylingTemplate {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: update the user's styling
+   */
+   map<string, string> css_properties = 1;
+}
+
+message UserData {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: do nothing (this is always sent wrapped inside a stage message)
+   */
+  string uuid = 1;
+  string username = 2;
+  bool is_sponsor = 3;
+  bool is_moderator = 4;
+  bool is_admin = 5;
+  bool is_owner = 6;
+  repeated Ban bans = 7;
+  repeated Commendation commendations = 8;
+  UserStylingTemplate styling = 9;
+  map<string, string> platform_ids = 10;
+}
+
+// ==========================================
+// SYSTEM & CONNECTION STRUCTURES
+// ==========================================
+
+message ConnectionRequest {
+  /*
+   * expected behavior:
+   * unauthed: validate values, if good provide auth token
+   * authed: do nothing
+   */
+  int32 pin = 1;
+  ProcessPosition process_position = 2;
+  uint32 priority = 3;
+  string module_instance_uuid7 = 4;
+}
+
+message ConnectionRequestReturn {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: server: do nothing. module: update connection credentials and use moving forward
+   */
+  uint32 new_port = 1;
+  string module_instance_uuid7 = 2;
+}
+
+message Err {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: module: handle liberally. engine: log the error into the timeline database, skip return value from module and pass to next module
+   */
+  string log = 1;
+  bytes blob = 2;
+  string trace = 3;
+}
+
+message Log {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: module: handle liberally. engine: add to timeline then if a message return is expected, ignore the result and carry on. Otherwise just log it.
+   */
+  string log = 1;
+  bytes blob = 2;
+}
+
+message Shutdown {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: module: shut self down. engine: do nothing
+   */
+  string reason = 1;
+}
+
+message SendToPlatforms {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: checked if module has been given the perms to do this, if an adapter-module: send the message to the platform. if engine: fan out to the adapters.
+   * The engine verifies the actor (the human who triggered the send) against the
+   * user database before routing, and logs who sent it to the timeline database.
+   */
+  string msg = 1;
+  PlatformSendLevel level = 2;
+  string module_uuid7 = 3;
+  string pid = 4;
+  string platform = 5;   // target platform ("twitch" | "kick" | "youtube" | "all")
+  string actor_platform = 6; // identity of the human who triggered the send
+  string actor_handle = 7;   // platform handle of that actor
+  string actor_uuid7 = 8;    // user DB uuid7 of that actor (when known)
+  /* Optional: target a single channel instead of every channel the adapter
+   * monitors (used for !help / invalid-command replies). */
+  string channel_id = 9;
+}
+
+// ==========================================
+// PIPELINE ACK & DATABASE
+// ==========================================
+
+message MessageAck {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: engine: mark module as acked for the given message UUID7, remove from pending acks
+   */
+  string message_uuid7 = 1;
+  // reserved for future extension (status codes, progress, etc.)
+}
+
+message DatabaseQuery {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: engine: execute query against the database and return results
+   */
+  string query_id = 1;           // unique ID for this query, used to match response
+  string sql = 2;               // SQL query to execute (read-only)
+  repeated string params = 3;   // query parameters as strings
+}
+
+message DatabaseQueryResult {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: module: handle query results
+   */
+  string query_id = 1;           // matches the query_id from DatabaseQuery
+  bool success = 2;             // true if query succeeded
+  string error = 3;             // error message if failed
+  bytes result_blob = 4;        // serialized result data (JSON)
+}
+
+// ==========================================
+// MODULE CONTROL
+// ==========================================
+
+enum ModuleControlAction {
+  MODULE_CONTROL_ACTION_UNSPECIFIED = 0;
+  MODULE_CONTROL_ACTION_START = 1;
+  MODULE_CONTROL_ACTION_STOP = 2;
+  MODULE_CONTROL_ACTION_DELETE = 3;
+  MODULE_CONTROL_ACTION_SET_AUTOSTART = 4;
+}
+
+message ModuleControl {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: engine: start/stop/delete a module or toggle its autostart flag
+   */
+  ModuleControlAction action = 1;
+  string module_name = 2;
+  bool autostart = 3;   // used only by SET_AUTOSTART
+}
+
+message ModuleControlResult {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: module: display result of the control action
+   */
+  bool success = 1;
+  string error = 2;
+  string message = 3;
+}
+
+// ==========================================
+// PROMPTS (engine/UI -> user confirmations)
+// ==========================================
+
+// What kind of answer a Prompt expects. The UI picks its input widget and
+// handling from this; UNSPECIFIED falls back to the legacy behavior
+// (input_label empty -> yes/no, non-empty -> free text).
+enum PromptType {
+  PROMPT_TYPE_UNSPECIFIED = 0;
+  PROMPT_TYPE_BOOLEAN = 1;      // yes/no answer (y / n keys)
+  PROMPT_TYPE_STRING = 2;       // free text: strings, numbers, anything typed/pasted
+  PROMPT_TYPE_CREDENTIAL = 3;   // like STRING, but the UI must MASK the input
+                                // (conceal it) so secrets (API keys, tokens) are
+                                // never shown on screen; the plaintext still
+                                // travels in PromptResponse.reason
+}
+
+message Prompt {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: module (e.g. the TUI): display the prompt to the user and send a
+   * PromptResponse back with the same prompt_id_uuid7. engine: forward the
+   * prompt to connected modules so the user can be asked.
+   */
+  string prompt_id_uuid7 = 1; // correlation id for the PromptResponse
+  string prompt = 2;          // generic title, e.g. "DO YOU WANT TO DO ACTION?"
+  string details = 3;         // expounding on what the action is
+  string yes_dialog = 4;      // label for the confirm action, e.g. "Allow"
+  string no_dialog = 5;       // label for the deny action, e.g. "Deny"
+  uint32 timeout = 6;         // seconds the user has to respond
+  string origin = 7;          // who is asking (module name, or "engine")
+  string origin_uuid7 = 8;    // optional uuid7 of the origin (e.g. connecting module)
+  string instructions = 9;    // context / what the user should do / why they're being asked
+  string link = 10;           // URL to open for the prompt's subject (clickable in the UI)
+  string input_label = 11;    // label for the free-text input field (STRING/CREDENTIAL)
+  PromptType prompt_type = 12; // what kind of answer is expected (see enum above)
+}
+
+message PromptResponse {
+  /* expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: module (e.g. the TUI): send this back after the user answers a
+   *         Prompt, echoing its prompt_id_uuid7. engine: route the response to
+   *         whichever module is waiting on that prompt_id_uuid7.
+   */
+  string prompt_id_uuid7 = 1;
+  bool accepted = 2;
+  string reason = 3;
+}
+
+message AuditFlag {
+  /* expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: engine: mark the referenced timeline message as held for audit
+   *         (pipeline_status = "audit"). It is NOT shown or counted until a
+   *         moderator reviews it, and it is then either released (resubmitted as
+   *         normal) or rejected.
+   *
+   *         A module sends this alongside the message it is flagging. The hold
+   *         MUST land before the flagging module's own pre-process ack is
+   *         processed, or the timeline row slips past the hold.
+   */
+  string message_uuid7 = 1; // the timeline event to hold for audit
+  string reason = 2;        // why it is being flagged (e.g. language)
+  string origin = 3;        // the module that flagged it
+}
+
+message ChatMessageRejected {
+  /* expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: a module reports that it rejected a message. The engine logs it
+   *         clearly (removing obscurity) and persists it as a timeline event so
+   *         rejections are searchable. The message itself still flows onward as
+   *         the module chose — this is a record, not a veto.
+   */
+  string message_uuid7 = 1;     // the pipeline message being rejected
+  ChatMessage message = 2;      // the ORIGINAL raw message (+ platform, user_uuid7)
+  optional string processed_message = 3; // what it became (censored/held); UNSET = dropped
+  string reason = 4;            // why it was rejected, human-readable
+  string origin = 5;            // the module that rejected it
+}
+
+// ==========================================
+// MESSAGE PIPELINE
+// ==========================================
+//
+// THE MESSAGE TYPE IS THE STAGE. There is deliberately no bare `ChatMessage`
+// payload in either container: a chat message only ever travels wrapped in the
+// stage message for the stage it is currently in, so a receiver can always tell
+// what it is being asked to do. (v1 declared `ChatMessage` as a top-level
+// message but never put it in the container, so it was unreachable; v2 does not
+// reintroduce it as a payload.)
+//
+// Progression for one message:
+//   adapter ──MessagePreProcess──> pre-process modules
+//   engine  ──MessageInProcess──> in-process modules   (may be empty; skipped)
+//   engine  ──MessagePostProcess─> post-process modules
+//   module  ──MessageAck─────────> engine   (a stage reply carrying the same
+//                                         `message_uuid7` acks just as well)
+//
+// A stage advances when EVERY module it was sent to has replied carrying the
+// same `message_uuid7`, or when the 3s ack timeout expires and the engine's
+// timeout sweep notices. A module that is not connected is not waited for.
+//
+// Both ack paths run module -> engine: the standalone `MessageAck` payload
+// (ContainerForEngine tag 22; 22 is `reserved` on ContainerForModule), or the
+// stage reply itself — any inbound stage payload matching a pending ack acks it.
+
+// Core message data shared across all processing stages
+message ChatMessage {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: add to the pre-process queue; once fanned out to each pre-process module it moves to the in-process queue, then post-process
+   */
+  string platform = 1;
+  bytes raw_data = 2;
+  string raw_message = 3;
+  string user_uuid7 = 4;
+  Command command = 5;
+  UserData user_data = 6;
+  /* The source channel this message came from (adapter-scoped: the Twitch
+   * channel / Kick channel / YouTube live chat id / Discord channel id), used
+   * to target engine replies (e.g. !help) back to the right channel. */
+  string channel_id = 7;
+}
+
+message MessagePreProcess {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: do nothing
+   */
+  string message_uuid7 = 2;
+  ChatMessage raw_message = 1;
+  bytes audio = 3;      // optional audio rendered for this message (mp3/wav)
+  string audio_type = 4; // e.g. "audio/mpeg" or "audio/wav"
+}
+
+message MessageInProcess {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: do nothing
+   */
+  string message_uuid7 = 4;
+  ChatMessage raw_message = 1;
+  string processed_message = 2;
+  bool abandon_message = 3;
+  bytes audio = 5;      // optional audio rendered for this message (mp3/wav)
+  string audio_type = 6; // e.g. "audio/mpeg" or "audio/wav"
+}
+
+message MessagePostProcess {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: do nothing
+   */
+  string message_uuid7 = 3;
+  ChatMessage raw_message = 1;
+  string processed_message = 2;
+  bytes audio = 4;      // optional audio rendered for this message (mp3/wav)
+  string audio_type = 5; // e.g. "audio/mpeg" or "audio/wav"
+}
+
+// ==========================================
+// TIMELINE
+// ==========================================
+
+message TimelineEvent {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: engine: do nothing. module: you should not expect this; drop it UNLESS you are a timeline or timeline-backup peer
+   * */
+  string timeline_id_uuid7 = 1; // THIS IS THE PRIMARY KEY
+  EventCategory event_type = 2;
+  string command_flag = 3;
+  bytes data_blob = 4;
+  string error_message = 5;
+  string raw_flags = 6;
+  string message_origin = 7;
+  string stream_origin = 8;
+  string raw_message = 9;
+  string processed_message = 10;
+  string user_uuid7 = 11;
+  uint32 version = 12; // cannot be negative
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE ROOT CONTAINERS
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// A container is the ONLY top-level message; its payload is a `oneof`, so
+// exactly one payload travels per container. Anything not in the oneof cannot be
+// expressed on the wire and MUST be rejected by the receiver.
+//
+// Tag numbers are carried over from v1 wherever the payload type is unchanged,
+// so a v1 peer and a v2 peer agree on the shared tags. Slots v1 declared but
+// never used are `reserved` here rather than left free.
+
+message ContainerForModule {
+  // Every payload here travels ENGINE -> MODULE.
+  int32 version = 1;                  // protocol family: 2 for v2
+  string auth_token = 3;              // engine-issued credential
+  string module_instance_uuid7 = 5;   // the engine-assigned id, echoed from ConnectionRequestReturn
+
+  oneof payload {
+    Ban ban = 6;                      // the operator is banning/unbanning someone
+    ConnectionRequestReturn connection_request_return = 8; // the auth token + assigned instance id
+    AuthVerify auth_verify = 9;        // liveness probe; reply with your current auth
+    AuthNew auth_new = 10;             // your credential was rotated; adopt new_auth
+    Commands commands = 12;           // the command set this engine has registered
+    MessagePreProcess message_pre_process = 13;   // STAGE 1
+    MessageInProcess message_in_process = 14;     // STAGE 2
+    MessagePostProcess message_post_process = 15; // STAGE 3
+    TimelineEvent timeline_event = 16; // timeline/backup history replay
+    UserData user_data = 17;           // a user profile update
+    Shutdown shutdown = 18;            // you are being asked to exit
+    Log log = 19;                      // log lines relayed from the engine. ASSUME EVERYTHING HERE
+                                      // IS PUBLIC - never log a token. Keep it to big events
+    Err err = 20;                      // something went wrong upstream
+    SendToPlatforms send_to_platforms = 21; // post this to the platform(s)
+    DatabaseQueryResult database_query_result = 24; // reply to your database_query
+    ModuleControlResult module_control_result = 26; // reply to your module_control
+    Prompt prompt = 27;                // a question for the user
+    PromptResponse prompt_response = 28;// your answer to an earlier prompt
+  }
+  // Tag 2 was never used in v1. `connection_request` (7) is engine-INBOUND only —
+  // a module asks to join a stage, the engine answers with 8 — so the engine must
+  // never be able to send one. `command` (11) is invoked by a module, and
+  // 22/23/25/29/30 are all module -> engine, so none of them may be accepted
+  // from the engine. Reserved so a future version cannot reuse them.
+  reserved 2, 4, 7, 11, 22, 23, 25, 29, 30;
+}
+
+message ContainerForEngine {
+  // Every payload here travels MODULE -> ENGINE.
+  int32 version = 1;                  // protocol family: 2 for v2
+  string auth_token = 3;              // engine-issued credential
+  string module_name = 4;             // required: the engine routes and attributes on this
+  string module_instance_uuid7 = 5;   // required after connecting
+
+  oneof payload {
+    Ban ban = 6;                      // request to ban/unban someone
+    ConnectionRequest connection_request = 7;  // ask to join a pipeline stage
+    AuthVerify auth_verify = 9;        // your current credential
+    Command command = 11;             // a standalone command invocation, outside any chat message
+    Commands commands = 12;           // publish/refresh your command set
+    Log log = 19;                     // a notable event. ASSUME EVERYTHING HERE IS PUBLIC —
+                                      // never log a token. Keep it to big events.
+    Err err = 20;                     // an error while processing a command
+    SendToPlatforms send_to_platforms = 21; // "post this to chat", gated by the user's settings
+    MessageAck message_ack = 22;      // "I have this message"; without it the engine
+                                      // assumes the connection dropped
+    DatabaseQuery database_query = 23;      // run a read-only query
+    ModuleControl module_control = 25;      // start/stop/delete a module, toggle autostart
+    Prompt prompt = 27;                // you need something from the user
+    PromptResponse prompt_response = 28;   // your answer to an earlier prompt
+    AuditFlag audit_flag = 29;         // hold a message for moderator review
+    ChatMessageRejected chat_message_rejected = 30; // record a rejection; NOT a veto
+  }
+  // Reserved: `auth_new` (10) is engine-issued, so a module is never sent one and
+  // must not be able to ask for a credential rotation. The stage messages (13-15),
+  // state (16-18) and results (24, 26) are engine -> module only.
+  reserved 2, 8, 10, 13, 14, 15, 16, 17, 18, 24, 26;
+}
