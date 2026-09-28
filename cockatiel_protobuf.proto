@@ -505,6 +505,31 @@ message PredictionUpdate {
   string winner_side = 9;       // "left" | "right" when RESOLVED
 }
 
+message PollUpdate {
+  /* 
+   * expected behavior: 
+   * unauthed: sever connection immediately
+   * authed: engine: relay this to every connected module (display windows).
+   *   module: (brain) send after each state change so displays re-render.
+   *   Polls are FREE votes — no score is moved. `hide_counts` means the
+   *   display shows the options but not the live counts (to prevent bandwagon
+   *   bias); counts are revealed when the poll is closed.
+   */
+  string poll_id = 1;
+  string prompt = 2;
+  repeated string options = 3;      // 1..6 options, index 0 = option 1
+  repeated int64 vote_counts = 4;   // parallel to options
+  int64 total_votes = 5;
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_OPEN = 1;
+    STATUS_CLOSED = 2;
+  }
+  Status status = 6;
+  int32 winner_index = 7;           // 0-based option index when CLOSED; -1 if none
+  bool hide_counts = 8;             // if true, counts are concealed while OPEN
+}
+
 message Container {
   /* 
    * expected behavior: 
@@ -542,5 +567,6 @@ message Container {
     AuditFlag audit_flag = 29;
     ChatMessageRejected chat_message_rejected = 30;
     PredictionUpdate prediction_update = 31;
+    PollUpdate poll_update = 32;
   }
 }

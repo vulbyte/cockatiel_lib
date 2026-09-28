@@ -583,6 +583,31 @@ message PredictionUpdate {
   string winner_side = 9;       // "left" | "right" when RESOLVED
 }
 
+message PollUpdate {
+  /*
+   * expected behavior:
+   * unauthed: sever the connection immediately
+   * authed: engine: relay to every connected module. module: (brain) send after
+   *   each state change; (display) re-render from the options and counts.
+   *   Polls are FREE votes — no score is moved. `hide_counts` conceals the
+   *   live counts while OPEN (to prevent bandwagon bias); counts are revealed
+   *   when the poll is CLOSED.
+   */
+  string poll_id = 1;
+  string prompt = 2;
+  repeated string options = 3;      // 1..6 options, index 0 = option 1
+  repeated int64 vote_counts = 4;   // parallel to options
+  int64 total_votes = 5;
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_OPEN = 1;
+    STATUS_CLOSED = 2;
+  }
+  Status status = 6;
+  int32 winner_index = 7;           // 0-based option index when CLOSED; -1 if none
+  bool hide_counts = 8;             // if true, counts are concealed while OPEN
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // THE ROOT CONTAINERS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -622,6 +647,7 @@ message ContainerForModule {
     Prompt prompt = 27;                // a question for the user
     PromptResponse prompt_response = 28;// your answer to an earlier prompt
     PredictionUpdate prediction_update = 31; // live prediction bar state
+    PollUpdate poll_update = 32;               // live free-vote poll state
   }
   // Tag 2 was never used in v1. `connection_request` (7) is engine-INBOUND only —
   // a module asks to join a stage, the engine answers with 8 — so the engine must
@@ -657,6 +683,7 @@ message ContainerForEngine {
     AuditFlag audit_flag = 29;         // hold a message for moderator review
     ChatMessageRejected chat_message_rejected = 30; // record a rejection; NOT a veto
     PredictionUpdate prediction_update = 31; // publish prediction bar state
+    PollUpdate poll_update = 32;               // publish free-vote poll state
   }
   // Reserved: `auth_new` (10) is engine-issued, so a module is never sent one and
   // must not be able to ask for a credential rotation. The stage messages (13-15),
