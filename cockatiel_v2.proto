@@ -670,8 +670,10 @@ message ContainerForModule {
   // a module asks to join a stage, the engine answers with 8 — so the engine must
   // never be able to send one. `command` (11) is invoked by a module, and
   // 22/23/25/29/30 are all module -> engine, so none of them may be accepted
-  // from the engine. Reserved so a future version cannot reuse them.
-  reserved 2, 4, 7, 11, 22, 23, 25, 29, 30;
+  // from the engine. `channel_stats` (33) is module -> engine only (adapters
+  // push viewer counts; the engine never sends them). Reserved so a future
+  // version cannot reuse them.
+  reserved 2, 4, 7, 11, 22, 23, 25, 29, 30, 33;
 }
 
 message ContainerForEngine {
