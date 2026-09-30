@@ -530,6 +530,24 @@ message PollUpdate {
   bool hide_counts = 8;             // if true, counts are concealed while OPEN
 }
 
+message ChannelStats {
+  /* 
+   * expected behavior: 
+   * unauthed: sever connection immediately
+   * authed: adapters push their channel's current viewer/member count on each
+   *   poll; the engine stores it and serves it to other modules on demand via
+   *   the `channel_viewers` virtual query. Origin-gated to the platform
+   *   adapters (twitch/kick/youtube/discord) — a random module spoofing stats
+   *   would poison every consumer.
+   */
+  string platform = 1;      // "twitch" | "kick" | "youtube" | "discord"
+  string channel = 2;       // channel name / guild id / video id
+  int64 viewers = 3;        // current viewer count (0 when offline); Discord = guild member count
+  bool is_live = 4;         // whether the channel is currently streaming
+  string title = 5;         // current stream/game title when live, else empty
+  int64 updated_at = 6;     // unix millis when this was last refreshed
+}
+
 message Container {
   /* 
    * expected behavior: 
@@ -568,5 +586,6 @@ message Container {
     ChatMessageRejected chat_message_rejected = 30;
     PredictionUpdate prediction_update = 31;
     PollUpdate poll_update = 32;
+    ChannelStats channel_stats = 33;
   }
 }
