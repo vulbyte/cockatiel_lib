@@ -368,7 +368,7 @@ User :: struct {
 	updated_at:    i64,
 	total_score:   i64,
 	messages_sent: i64,
-	rank:          i64,
+	rank:          f32,
 }
 
 UserValueResult :: struct {
@@ -2846,7 +2846,7 @@ encode_user :: proc(m: User) -> [dynamic]u8 {
 	put_i64_field(&w, 13, m.updated_at)
 	put_i64_field(&w, 14, m.total_score)
 	put_i64_field(&w, 15, m.messages_sent)
-	put_i64_field(&w, 16, m.rank)
+	put_float_field(&w, 16, m.rank)
 	return w
 }
 
@@ -2925,8 +2925,8 @@ decode_user :: proc(b: []byte) -> (m: User) {
 				m.messages_sent = i64(v)
 			}
 		case 16:
-			if v, ok := read_varint_field(&r, wire); ok {
-				m.rank = i64(v)
+			if f, ok := read_float_field(&r, wire); ok {
+				m.rank = f
 			}
 		case:
 			skip_field(&r, wire)

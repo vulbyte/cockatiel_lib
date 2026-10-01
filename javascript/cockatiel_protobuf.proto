@@ -870,10 +870,12 @@ message User {
   int64 total_score = 14;
   // How many chat messages this user has sent (a rank factor).
   int64 messages_sent = 15;
-  // The user's CURRENT rank, computed server-side from score, ratings,
-  // messages and account age (with configurable decay) and returned alongside
-  // the rest of the record so callers never make a second trip for it.
-  int64 rank = 16;
+  // The user's CURRENT rank on the 0-1 scale, computed server-side from
+  // score, ratings, messages and account age (with configurable decay) and
+  // returned alongside the rest of the record so callers never make a second
+  // trip for it. Numbers are for logic; tier NAMES are a display concern
+  // derived locally from the root `rank_chart.json`.
+  float rank = 16;
 }
 
 // A single rating-history event (commend or reprimand) returned to a caller.

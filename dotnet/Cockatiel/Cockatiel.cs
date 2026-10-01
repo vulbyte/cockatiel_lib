@@ -14126,15 +14126,16 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "rank" field.</summary>
     public const int RankFieldNumber = 16;
-    private long rank_;
+    private float rank_;
     /// <summary>
-    /// The user's CURRENT rank, computed server-side from score, ratings,
+    /// The user's CURRENT rank on the 0-1 scale, computed server-side from score, ratings,
     /// messages and account age (with configurable decay) and returned alongside
     /// the rest of the record so callers never make a second trip for it.
+    /// Numbers are for logic; tier NAMES are a display concern derived locally from the root `rank_chart.json`.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Rank {
+    public float Rank {
       get { return rank_; }
       set {
         rank_ = value;
@@ -14194,7 +14195,7 @@ namespace Cockatiel {
       if (UpdatedAt != 0L) hash ^= UpdatedAt.GetHashCode();
       if (TotalScore != 0L) hash ^= TotalScore.GetHashCode();
       if (MessagesSent != 0L) hash ^= MessagesSent.GetHashCode();
-      if (Rank != 0L) hash ^= Rank.GetHashCode();
+      if (Rank != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(Rank);
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -14270,9 +14271,9 @@ namespace Cockatiel {
         output.WriteRawTag(120);
         output.WriteInt64(MessagesSent);
       }
-      if (Rank != 0L) {
-        output.WriteRawTag(128, 1);
-        output.WriteInt64(Rank);
+      if (Rank != 0F) {
+        output.WriteRawTag(133, 1);
+        output.WriteFloat(Rank);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -14341,9 +14342,9 @@ namespace Cockatiel {
         output.WriteRawTag(120);
         output.WriteInt64(MessagesSent);
       }
-      if (Rank != 0L) {
-        output.WriteRawTag(128, 1);
-        output.WriteInt64(Rank);
+      if (Rank != 0F) {
+        output.WriteRawTag(133, 1);
+        output.WriteFloat(Rank);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -14398,8 +14399,8 @@ namespace Cockatiel {
       if (MessagesSent != 0L) {
         size += 1 + pb::CodedOutputStream.ComputeInt64Size(MessagesSent);
       }
-      if (Rank != 0L) {
-        size += 2 + pb::CodedOutputStream.ComputeInt64Size(Rank);
+      if (Rank != 0F) {
+        size += 2 + 4;
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -14456,7 +14457,7 @@ namespace Cockatiel {
       if (other.MessagesSent != 0L) {
         MessagesSent = other.MessagesSent;
       }
-      if (other.Rank != 0L) {
+      if (other.Rank != 0F) {
         Rank = other.Rank;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
@@ -14539,7 +14540,7 @@ namespace Cockatiel {
             break;
           }
           case 128: {
-            Rank = input.ReadInt64();
+            Rank = input.ReadFloat();
             break;
           }
         }
@@ -14622,7 +14623,7 @@ namespace Cockatiel {
             break;
           }
           case 128: {
-            Rank = input.ReadInt64();
+            Rank = input.ReadFloat();
             break;
           }
         }

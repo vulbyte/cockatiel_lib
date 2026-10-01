@@ -255,7 +255,7 @@ const _MESSAGES := {
 		["updated_at", 13, "int64"],
 		["total_score", 14, "int64"],
 		["messages_sent", 15, "int64"],
-		["rank", 16, "int64"],
+		["rank", 16, "float"],
 	],
 	"UserValueResult": [
 		["key", 1, "string"],

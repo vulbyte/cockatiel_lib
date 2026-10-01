@@ -46828,15 +46828,17 @@ java.lang.String defaultValue) {
 
     /**
      * <pre>
-     * The user's CURRENT rank, computed server-side from score, ratings,
-     * messages and account age (with configurable decay) and returned alongside
-     * the rest of the record so callers never make a second trip for it.
+     * The user's CURRENT rank on the 0-1 scale, computed server-side from score,
+     * ratings, messages and account age (with configurable decay) and returned
+     * alongside the rest of the record so callers never make a second trip for it.
+     * Numbers are for logic; tier NAMES are a display concern derived locally
+     * from the root `rank_chart.json`.
      * </pre>
      *
-     * <code>int64 rank = 16;</code>
+     * <code>float rank = 16;</code>
      * @return The rank.
      */
-    long getRank();
+    float getRank();
   }
   /**
    * <pre>
@@ -47205,19 +47207,21 @@ java.lang.String defaultValue) {
     }
 
     public static final int RANK_FIELD_NUMBER = 16;
-    private long rank_ = 0L;
+    private float rank_ = 0F;
     /**
      * <pre>
-     * The user's CURRENT rank, computed server-side from score, ratings,
-     * messages and account age (with configurable decay) and returned alongside
-     * the rest of the record so callers never make a second trip for it.
+     * The user's CURRENT rank on the 0-1 scale, computed server-side from score,
+     * ratings, messages and account age (with configurable decay) and returned
+     * alongside the rest of the record so callers never make a second trip for it.
+     * Numbers are for logic; tier NAMES are a display concern derived locally
+     * from the root `rank_chart.json`.
      * </pre>
      *
-     * <code>int64 rank = 16;</code>
+     * <code>float rank = 16;</code>
      * @return The rank.
      */
     @java.lang.Override
-    public long getRank() {
+    public float getRank() {
       return rank_;
     }
 
@@ -47280,8 +47284,8 @@ java.lang.String defaultValue) {
       if (messagesSent_ != 0L) {
         output.writeInt64(15, messagesSent_);
       }
-      if (rank_ != 0L) {
-        output.writeInt64(16, rank_);
+      if (rank_ != 0F) {
+        output.writeFloat(16, rank_);
       }
       getUnknownFields().writeTo(output);
     }
@@ -47349,9 +47353,9 @@ java.lang.String defaultValue) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(15, messagesSent_);
       }
-      if (rank_ != 0L) {
+      if (rank_ != 0F) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(16, rank_);
+          .computeFloatSize(16, rank_);
       }
       return size;
     }
@@ -47407,8 +47411,9 @@ java.lang.String defaultValue) {
           != other.getTotalScore()) return false;
       if (getMessagesSent()
           != other.getMessagesSent()) return false;
-      if (getRank()
-          != other.getRank()) return false;
+      if (java.lang.Float.floatToIntBits(getRank())
+          != java.lang.Float.floatToIntBits(
+              other.getRank())) return false;
       if (!getUnknownFields().equals(other.getUnknownFields())) return false;
       return true;
     }
@@ -47464,7 +47469,7 @@ java.lang.String defaultValue) {
       hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
           getMessagesSent());
       hash = (37 * hash) + RANK_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+      hash = (53 * hash) + java.lang.Float.floatToIntBits(
           getRank());
       hash = (29 * hash) + getUnknownFields().hashCode();
       memoizedHashCode = hash;
@@ -47622,7 +47627,7 @@ java.lang.String defaultValue) {
         updatedAt_ = 0L;
         totalScore_ = 0L;
         messagesSent_ = 0L;
-        rank_ = 0L;
+        rank_ = 0F;
         return this;
       }
 
@@ -47802,7 +47807,7 @@ java.lang.String defaultValue) {
         if (other.getMessagesSent() != 0L) {
           setMessagesSent(other.getMessagesSent());
         }
-        if (other.getRank() != 0L) {
+        if (java.lang.Float.floatToRawIntBits(other.getRank()) != 0) {
           setRank(other.getRank());
         }
         this.mergeUnknownFields(other.getUnknownFields());
@@ -47915,7 +47920,7 @@ java.lang.String defaultValue) {
                 break;
               } // case 120
               case 128: {
-                rank_ = input.readInt64();
+                rank_ = input.readFloat();
                 bitField0_ |= 0x00008000;
                 break;
               } // case 128
@@ -48843,33 +48848,37 @@ java.lang.String defaultValue) {
         return this;
       }
 
-      private long rank_ ;
+      private float rank_ ;
       /**
        * <pre>
-       * The user's CURRENT rank, computed server-side from score, ratings,
-       * messages and account age (with configurable decay) and returned alongside
-       * the rest of the record so callers never make a second trip for it.
+       * The user's CURRENT rank on the 0-1 scale, computed server-side from score,
+       * ratings, messages and account age (with configurable decay) and returned
+       * alongside the rest of the record so callers never make a second trip for it.
+       * Numbers are for logic; tier NAMES are a display concern derived locally
+       * from the root `rank_chart.json`.
        * </pre>
        *
-       * <code>int64 rank = 16;</code>
+       * <code>float rank = 16;</code>
        * @return The rank.
        */
       @java.lang.Override
-      public long getRank() {
+      public float getRank() {
         return rank_;
       }
       /**
        * <pre>
-       * The user's CURRENT rank, computed server-side from score, ratings,
-       * messages and account age (with configurable decay) and returned alongside
-       * the rest of the record so callers never make a second trip for it.
+       * The user's CURRENT rank on the 0-1 scale, computed server-side from score,
+       * ratings, messages and account age (with configurable decay) and returned
+       * alongside the rest of the record so callers never make a second trip for it.
+       * Numbers are for logic; tier NAMES are a display concern derived locally
+       * from the root `rank_chart.json`.
        * </pre>
        *
-       * <code>int64 rank = 16;</code>
+       * <code>float rank = 16;</code>
        * @param value The rank to set.
        * @return This builder for chaining.
        */
-      public Builder setRank(long value) {
+      public Builder setRank(float value) {
 
         rank_ = value;
         bitField0_ |= 0x00008000;
@@ -48878,17 +48887,19 @@ java.lang.String defaultValue) {
       }
       /**
        * <pre>
-       * The user's CURRENT rank, computed server-side from score, ratings,
-       * messages and account age (with configurable decay) and returned alongside
-       * the rest of the record so callers never make a second trip for it.
+       * The user's CURRENT rank on the 0-1 scale, computed server-side from score,
+       * ratings, messages and account age (with configurable decay) and returned
+       * alongside the rest of the record so callers never make a second trip for it.
+       * Numbers are for logic; tier NAMES are a display concern derived locally
+       * from the root `rank_chart.json`.
        * </pre>
        *
-       * <code>int64 rank = 16;</code>
+       * <code>float rank = 16;</code>
        * @return This builder for chaining.
        */
       public Builder clearRank() {
         bitField0_ = (bitField0_ & ~0x00008000);
-        rank_ = 0L;
+        rank_ = 0F;
         onChanged();
         return this;
       }

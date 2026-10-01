@@ -716,10 +716,12 @@ typedef struct _cockatiel_protobuf_User {
     int64_t total_score;
     /* How many chat messages this user has sent (a rank factor). */
     int64_t messages_sent;
-    /* The user's CURRENT rank, computed server-side from score, ratings,
- messages and account age (with configurable decay) and returned alongside
- the rest of the record so callers never make a second trip for it. */
-    int64_t rank;
+/* The user's CURRENT rank on the 0-1 scale, computed server-side from
+  score, ratings, messages and account age (with configurable decay) and
+  returned alongside the rest of the record so callers never make a second
+  trip for it. Numbers are for logic; tier NAMES are a display concern derived
+  locally from the root `rank_chart.json`. */
+    float rank;
 } cockatiel_protobuf_User;
 
 /* A single rating-history event (commend or reprimand) returned to a caller. */
@@ -2030,7 +2032,7 @@ X(a, STATIC,   SINGULAR, INT64,    created_at,       12) \
 X(a, STATIC,   SINGULAR, INT64,    updated_at,       13) \
 X(a, STATIC,   SINGULAR, INT64,    total_score,      14) \
 X(a, STATIC,   SINGULAR, INT64,    messages_sent,    15) \
-X(a, STATIC,   SINGULAR, INT64,    rank,             16)
+X(a, STATIC,   SINGULAR, FLOAT,    rank,             16)
 #define cockatiel_protobuf_User_CALLBACK NULL
 #define cockatiel_protobuf_User_DEFAULT NULL
 #define cockatiel_protobuf_User_channels_MSGTYPE cockatiel_protobuf_ChannelRef
