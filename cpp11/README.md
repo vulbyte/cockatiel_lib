@@ -31,7 +31,7 @@ client.receive_loop([](const cockatiel::Container *c) {
     // auto-answers AuthVerify; your handler sees every other frame
 });
 
-cockatiel_protobuf_v1_Log log = cockatiel_protobuf_v1_Log_init_zero;
+cockatiel_protobuf_Log log = cockatiel_protobuf_Log_init_zero;
 snprintf(log.log, sizeof(log.log), "hello");
 client.send(COCKATIEL_PAYLOAD_LOG, &log);
 ```

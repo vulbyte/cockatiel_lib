@@ -22,7 +22,8 @@ async function main() {
   // 1. Load your compiled or dynamic protobuf bundle
   const root = await protobuf.load('cockatiel_protobuf.proto');
   const pb = {
-    Container: root.lookupType('cockatiel.v1.Container')
+    ContainerForEngine: root.lookupType('cockatiel_protobuf.ContainerForEngine'),
+    ContainerForModule: root.lookupType('cockatiel_protobuf.ContainerForModule'),
   };
 
   // 2. Connect to the engine
@@ -82,14 +83,21 @@ try {
 
 ---
 
-## The Two-Phase Handshake Flow
+## Single-Connection Handshake
 
-The client transparently handles Cockatiel's two-phase handshake mechanism:
+The client uses Cockatiel's single-connection auth (v2 wire, `version = 2`):
 
-1. **Initial Connection**: Connects to the initial listening address (`url`) and transmits a `ConnectionRequest` payload container.
+1. **Initial Connection**: Connects to the engine URL and transmits a
+   `ContainerForEngine` carrying a `ConnectionRequest` (PIN) plus the module
+   name.
 
+2. **Auth Reply**: The engine answers on the **same** socket with a
+   `ContainerForModule` whose payload is a `ConnectionRequestReturn`
+   (`new_port == 0`) carrying the JWT in the container's `auth_token`. The
+   client keeps the socket, stores the JWT, and uses it in every later frame.
+   There is no dedicated-port hop.
 
-2. **Dedicated Port Handshake**: The engine responds with a `ConnectionRequestReturn` containing a dedicated port and an assigned/resolved module instance UUID.
-
-
-3. **Seamless Reconnection**: The client automatically closes the initial bootstrap socket, opens a new dedicated WebSocket connection on the newly assigned port, and mounts all I/O, error handlers, and dispatch streams there.
+3. **V2 wire**: outbound frames are encoded as `ContainerForEngine`
+   (`module_name` required), inbound frames are decoded as `ContainerForModule`
+   (no `module_name`). Stage messages with a non-empty `message_uuid7` are
+   receipt-acked with a `message_ack` immediately, before processing.

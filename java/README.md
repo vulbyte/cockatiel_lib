@@ -10,9 +10,10 @@ JWT on the same socket.
 ## Layout
 
 - **`Cockatiel.java`** — the whole library in one file, package `cockatiel`.
-  - `Cockatiel` — the public holder for the generated protobuf classes (all 23
-    `Container` payload types + enums), e.g. `Cockatiel.Container`,
-    `Cockatiel.MessagePreProcess`, `Cockatiel.DatabaseQuery`.
+  - `Cockatiel` — the public holder for the generated protobuf classes (both
+    `ContainerForEngine`/`ContainerForModule` payload types + enums), e.g.
+    `Cockatiel.ContainerForEngine`, `Cockatiel.MessagePreProcess`,
+    `Cockatiel.DatabaseQuery`.
   - `Cockatiel.CockatielClient` — the client.
   - `Cockatiel.CockatielClient.CockatielClientOptions` — connection settings.
   - `Cockatiel.CockatielClient.Uuid7` — RFC 9562 UUIDv7 generator.
@@ -61,13 +62,14 @@ opts.moduleName = "my-module";     // never blank / "unnamed_module"
 Cockatiel.CockatielClient client =
         Cockatiel.CockatielClient.connectAsync(opts).join();
 
-// Every decoded container, plus typed handlers for specific payloads.
+// Every decoded container (ContainerForModule), plus typed handlers.
 client.onMessage(c -> System.out.println(c.getPayloadCase()));
 client.on(Cockatiel.MessagePreProcess.class, m -> {
     System.out.println("ingested: " + m.getRawMessage().getRawMessage());
 });
 
-// sendAsync maps the payload's runtime type to the Container oneof field.
+// sendAsync maps the payload's runtime type to the ContainerForEngine oneof
+// field and encodes it at version 2 with module_name.
 client.sendAsync(Cockatiel.MessagePreProcess.newBuilder()
         .setMessageUuid7("")                     // empty -> brand-new message
         .setRawMessage(Cockatiel.ChatMessage.newBuilder()
@@ -76,7 +78,8 @@ client.sendAsync(Cockatiel.MessagePreProcess.newBuilder()
         .build());
 
 // AuthVerify probes are answered automatically inside the receive loop.
-// Slow handlers run off the receive thread, so they never delay that reply.
+// Stage messages with a message_uuid7 are receipt-acked (message_ack) before
+// user handlers run; slow handlers run off the receive thread.
 
 client.reconnect();            // fresh socket + ConnectionRequest with the JWT
 client.disconnect();           // close frame, then close

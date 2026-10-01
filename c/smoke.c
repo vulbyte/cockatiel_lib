@@ -24,7 +24,7 @@ static int g_chain_verified = 0;
 static const char *g_chain_qid = "c_chain_check";
 
 static void on_container(cockatiel_client *client,
-                         const cockatiel_protobuf_v1_Container *container,
+                         const cockatiel_protobuf_ContainerForModule *container,
                          void *userdata) {
     (void)client;
     (void)userdata;
@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
     nanosleep(&settle, NULL);
 
     /* Send a Log payload. */
-    cockatiel_protobuf_v1_Log log = cockatiel_protobuf_v1_Log_init_zero;
+    cockatiel_protobuf_Log log = cockatiel_protobuf_Log_init_zero;
     snprintf(log.log, sizeof(log.log),
              "C client smoke test @ %ld", (long)time(NULL));
     if (cockatiel_send(client, COCKATIEL_PAYLOAD_LOG, &log) != 0) {
@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
      *    verify the timeline row via a DatabaseQuery. ── */
     char msg[128];
     snprintf(msg, sizeof(msg), "C chain message %ld", (long)time(NULL));
-    cockatiel_protobuf_v1_MessagePreProcess pre = cockatiel_protobuf_v1_MessagePreProcess_init_zero;
+    cockatiel_protobuf_MessagePreProcess pre = cockatiel_protobuf_MessagePreProcess_init_zero;
     pre.has_raw_message = true;
     snprintf(pre.raw_message.platform, sizeof(pre.raw_message.platform), "test");
     snprintf(pre.raw_message.raw_message, sizeof(pre.raw_message.raw_message), "%s", msg);
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
     struct timespec ingest_wait = {.tv_sec = 0, .tv_nsec = 150000000L};
     nanosleep(&ingest_wait, NULL);
 
-    cockatiel_protobuf_v1_DatabaseQuery q = cockatiel_protobuf_v1_DatabaseQuery_init_zero;
+    cockatiel_protobuf_DatabaseQuery q = cockatiel_protobuf_DatabaseQuery_init_zero;
     snprintf(q.query_id, sizeof(q.query_id), "%s", g_chain_qid);
     snprintf(q.sql, sizeof(q.sql),
              "SELECT pipeline_status FROM timeline_events WHERE platform = 'test' AND raw_message = '%s'", msg);

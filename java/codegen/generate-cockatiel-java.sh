@@ -4,7 +4,7 @@
 # Cockatiel engine.
 #
 #   1. compiles the vendored cockatiel_protobuf.proto with protoc --java_out
-#   2. remaps the generated package (cockatiel_protobuf.v1) -> cockatiel
+#   2. remaps the generated package (cockatiel_protobuf) -> cockatiel
 #   3. renames the generated holder class CockatielProtobuf -> Cockatiel so the
 #      single public top-level class matches the file name (one public class
 #      per .java file is a hard Java rule)
@@ -29,17 +29,29 @@ trap 'rm -rf "$TMP"' EXIT
 
 "$PROTOC" -I "$LIB_ROOT" --java_out="$TMP" "$PROTO"
 
-GEN="$TMP/cockatiel_protobuf/v1/CockatielProtobuf.java"
+GEN="$TMP/cockatiel_protobuf/CockatielProtobuf.java"
 if [ ! -f "$GEN" ]; then
     echo "error: unexpected protoc output" >&2
     exit 1
 fi
 
-# 1. Remap package + fully-qualified references.
-sed 's/cockatiel_protobuf\.v1/cockatiel/g' "$GEN" > "$TMP/remapped.java"
+# 1. Remap package + fully-qualified references (the unified spec is package
+#    `cockatiel_protobuf`, no `.v1` suffix).
+sed 's/cockatiel_protobuf/cockatiel/g' "$GEN" > "$TMP/remapped.java"
 
 # 2. Rename the holder class so the public top-level type matches Cockatiel.java.
 sed 's/CockatielProtobuf/Cockatiel/g' "$TMP/remapped.java" > "$TMP/renamed.java"
+
+# 3. Disambiguate a protoc Java name collision: the spec declares BOTH
+#    `QUERY_OP_USERDB_DELETE_USER = 41` and `QUERY_OP_USERDB_DELETE_USER_VALUE = 52`.
+#    protoc emits the constant `QUERY_OP_USERDB_DELETE_USER_VALUE` (=41) and the
+#    enum member `QUERY_OP_USERDB_DELETE_USER_VALUE` (=52), which collide. Rename
+#    only the enum member (wire value 52 stays) so the file compiles.
+sed -i.bak \
+    -e 's/^\( *\)QUERY_OP_USERDB_DELETE_USER_VALUE(52),/\1QUERY_OP_USERDB_DELETE_USER_VALUE_52(52),/' \
+    -e 's/case 52: return QUERY_OP_USERDB_DELETE_USER_VALUE;/case 52: return QUERY_OP_USERDB_DELETE_USER_VALUE_52;/' \
+    "$TMP/renamed.java"
+rm -f "$TMP/renamed.java.bak"
 
 # The generated holder must end with exactly one bare '}' (the class close) as
 # the final line; the client is spliced in before it.

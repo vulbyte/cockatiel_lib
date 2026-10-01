@@ -4,7 +4,7 @@
 # Cockatiel engine.
 #
 #   1. compiles the vendored cockatiel_protobuf.proto with protoc --csharp_out
-#   2. remaps the generated namespace (CockatielProtobuf.V1) -> Cockatiel
+#   2. remaps the generated namespace (CockatielProtobuf) -> Cockatiel
 #   3. splices in the handwritten client (codegen/CockatielClient.partial.cs)
 #      and re-closes the namespace, producing one self-contained source file.
 #
@@ -38,7 +38,11 @@ fi
 # '#endregion Designer generated code'; the client partial is spliced in before
 # we re-emit all three. Also silence nullable-analysis warnings that the
 # generated descriptor code trips over (they are re-enabled before the client).
-sed 's/CockatielProtobuf\.V1/Cockatiel/g' "$GEN" \
+# The package is `cockatiel_protobuf` (protoc emits namespace CockatielProtobuf);
+# remap it to Cockatiel, preserving the reflection holder's class name.
+sed -e 's/CockatielProtobuf\.V1/Cockatiel/g' \
+    -e 's/global::CockatielProtobuf\./global::Cockatiel./g' \
+    -e 's/namespace CockatielProtobuf/namespace Cockatiel/g' "$GEN" \
     | sed 's/#pragma warning disable 1591, 0612, 3021, 8981/#pragma warning disable 1591, 0612, 3021, 8981, 8600, 8601, 8602, 8603, 8604, 8618, 8625, 8632, 8765, 8767/' \
     | sed '$d' | sed '$d' | sed '$d' > "$TMP/generated.cs"
 

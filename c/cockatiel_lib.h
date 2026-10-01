@@ -14,7 +14,11 @@ extern "C" {
  * gives headroom for nested ChatMessage + audio payloads. */
 #define COCKATIEL_MAX_FRAME (256u * 1024u)
 
-/* Container.payload oneof field numbers (see cockatiel_protobuf.proto). */
+/* Container.payload oneof field numbers (see cockatiel_protobuf.proto).
+ * The client ENCODES ContainerForEngine (module -> engine) and DECODES
+ * ContainerForModule (engine -> module); the tags below are the oneof field
+ * numbers, which are shared between the two containers where the payload
+ * exists in both directions. Tags 34-39 are engine -> module only. */
 typedef enum {
     COCKATIEL_PAYLOAD_NONE = 0,
     COCKATIEL_PAYLOAD_CONNECTION_REQUEST = 7,
@@ -39,7 +43,13 @@ typedef enum {
     COCKATIEL_PAYLOAD_MODULE_CONTROL_RESULT = 26,
     COCKATIEL_PAYLOAD_PROMPT = 27,
     COCKATIEL_PAYLOAD_PROMPT_RESPONSE = 28,
-    COCKATIEL_PAYLOAD_AUDIT_FLAG = 29
+    COCKATIEL_PAYLOAD_AUDIT_FLAG = 29,
+    COCKATIEL_PAYLOAD_TIMELINE_QUERY_RESULT = 34,
+    COCKATIEL_PAYLOAD_QUERY_RESPONSE = 35,
+    COCKATIEL_PAYLOAD_USER_DB_RESPONSE = 36,
+    COCKATIEL_PAYLOAD_PREDICTION_UPDATE = 37,
+    COCKATIEL_PAYLOAD_POLL_UPDATE = 38,
+    COCKATIEL_PAYLOAD_CHANNEL_STATS = 39
 } cockatiel_payload;
 
 /* ProcessPosition enum values (see cockatiel_protobuf.proto). */
@@ -54,10 +64,11 @@ enum {
 typedef struct cockatiel_client cockatiel_client;
 
 /* Called for every inbound container whose payload is NOT the auth handshake.
- * `container` is a fully-decoded Container; inspect `which_payload` for the
- * active oneof member. Return quickly — the receive loop does not block on you. */
+ * `container` is a fully-decoded ContainerForModule; inspect `which_payload`
+ * for the active oneof member. Return quickly — the receive loop does not
+ * block on you. */
 typedef void (*cockatiel_on_container)(cockatiel_client *client,
-                                       const cockatiel_protobuf_v1_Container *container,
+                                       const cockatiel_protobuf_ContainerForModule *container,
                                        void *userdata);
 
 /* Single-connection auth: opens ONE WebSocket to `url` (e.g. "ws://127.0.0.1:9734"),
@@ -73,19 +84,20 @@ cockatiel_client *cockatiel_connect(const char *url,
                                     char *errbuf,
                                     size_t errbuf_len);
 
-/* Wraps `message` in a Container (version=1, current JWT, module identity) and
- * queues it on the live socket. `payload_field` must be one of the
- * COCKATIEL_PAYLOAD_* values; the message pointer must point at the matching
- * generated struct. Returns 0 on success, non-zero on error. */
+/* Wraps `message` in a ContainerForEngine (version=2, current JWT, module
+ * identity) and queues it on the live socket. `payload_field` must be one of
+ * the COCKATIEL_PAYLOAD_* values; the message pointer must point at the
+ * matching generated struct. Returns 0 on success, non-zero on error. */
 int cockatiel_send(cockatiel_client *client,
                    cockatiel_payload payload_field,
                    const void *message);
 
-/* Blocking receive loop. Decodes every inbound frame into a Container,
+/* Blocking receive loop. Decodes every inbound frame into a ContainerForModule,
  * automatically answers AuthVerify liveness probes (replying with our JWT),
- * and invokes `cb` for every other payload. Malformed frames are skipped.
- * Returns when the socket closes, cockatiel_disconnect() is called, or an
- * unrecoverable error occurs. */
+ * automatically sends the MessageAck receipt ping for stage messages carrying
+ * a message_uuid7, and invokes `cb` for every other payload. Malformed frames
+ * are skipped. Returns when the socket closes, cockatiel_disconnect() is
+ * called, or an unrecoverable error occurs. */
 int cockatiel_receive_loop(cockatiel_client *client,
                            cockatiel_on_container cb,
                            void *userdata);

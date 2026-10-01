@@ -3,10 +3,11 @@ extends RefCounted
 ## Cockatiel chat-engine client for Godot 4.7+ (GDScript).
 ##
 ## One file: a hand-written protobuf wire codec (proto3, package
-## `cockatiel_protobuf.v1`, message `Container`) plus a WebSocketPeer transport
-## implementing the CLIENT_CONTRACT.md wire spec:
+## `cockatiel_protobuf`, messages `ContainerForEngine`/`ContainerForModule`)
+## plus a WebSocketPeer transport implementing the CLIENT_CONTRACT.md wire spec:
 ##   - single-connection PIN -> JWT auth (no two-phase / port hop)
-##   - full 23-field Container oneof decode surface
+##   - outbound frames encode `ContainerForEngine` (module_name set);
+##     inbound frames decode `ContainerForModule` (no module_name)
 ##   - automatic AuthVerify liveness answers inside the receive loop
 ##   - reconnect carrying the stored JWT
 ##   - PIN precedence: COCKATIEL_PIN env -> opts.pin
@@ -20,7 +21,7 @@ extends RefCounted
 # Protocol constants
 # ---------------------------------------------------------------------------
 
-const VERSION := 1
+const VERSION := 2
 const DEFAULT_URL := "ws://127.0.0.1:9734"
 const DEFAULT_TIMEOUT_MS := 10000
 
@@ -218,16 +219,131 @@ const _MESSAGES := {
 		["user_uuid7", 11, "string"],
 		["version", 12, "uint32"],
 	],
+	"TimelineQueryResult": [
+		["events", 1, "rep:msg:TimelineEvent"],
+		["truncated", 2, "bool"],
+		["request_id", 3, "string"],
+	],
+	"QueryResult": [
+		["result_blob", 1, "bytes"],
+	],
+	"QueryResponse": [
+		["request_id", 1, "string"],
+		["operation", 2, "enum"],
+		["success", 3, "bool"],
+		["error", 4, "string"],
+		["result", 5, "msg:QueryResult"],
+	],
+	"ChannelRef": [
+		["platform", 1, "string"],
+		["channel_id", 2, "string"],
+		["handle", 3, "string"],
+	],
+	"User": [
+		["uuid7", 1, "string"],
+		["username", 2, "string"],
+		["is_sponsor", 3, "bool"],
+		["is_moderator", 4, "bool"],
+		["is_admin", 5, "bool"],
+		["is_owner", 6, "bool"],
+		["score", 7, "int64"],
+		["commendations", 8, "int64"],
+		["reprimands", 9, "int64"],
+		["channels", 10, "rep:msg:ChannelRef"],
+		["flags", 11, "string"],
+		["created_at", 12, "int64"],
+		["updated_at", 13, "int64"],
+		["total_score", 14, "int64"],
+		["messages_sent", 15, "int64"],
+		["rank", 16, "int64"],
+	],
+	"UserValueResult": [
+		["key", 1, "string"],
+		["value", 2, "string"],
+	],
+	"RatingHistoryEntry": [
+		["uuid7", 1, "string"],
+		["giver_uuid7", 2, "string"],
+		["kind", 3, "string"],
+		["platform", 4, "string"],
+		["handle", 5, "string"],
+		["reason", 6, "string"],
+		["created_at", 7, "int64"],
+	],
+	"UserDbResponse": [
+		["success", 1, "bool"],
+		["error", 2, "string"],
+		["user", 3, "msg:User"],
+		["users", 4, "rep:msg:User"],
+		["message", 5, "string"],
+		["value", 6, "msg:UserValueResult"],
+		["values", 7, "rep:msg:UserValueResult"],
+		["rating_history", 8, "rep:msg:RatingHistoryEntry"],
+	],
+	"PredictionUpdate": [
+		["prediction_id", 1, "string"],
+		["prompt", 2, "string"],
+		["side_left_label", 3, "string"],
+		["side_right_label", 4, "string"],
+		["side_left_total", 5, "int64"],
+		["side_right_total", 6, "int64"],
+		["pot", 7, "int64"],
+		["status", 8, "enum"],
+		["winner_side", 9, "string"],
+	],
+	"PollUpdate": [
+		["poll_id", 1, "string"],
+		["prompt", 2, "string"],
+		["options", 3, "rep:string"],
+		["vote_counts", 4, "rep:int64"],
+		["total_votes", 5, "int64"],
+		["status", 6, "enum"],
+		["winner_index", 7, "int32"],
+		["hide_counts", 8, "bool"],
+	],
+	"ChannelStats": [
+		["platform", 1, "string"],
+		["channel", 2, "string"],
+		["viewers", 3, "int64"],
+		["is_live", 4, "bool"],
+		["title", 5, "string"],
+		["updated_at", 6, "int64"],
+	],
 }
 
-# Container.payload oneof: [client_name, field_number, proto_message_name]
-const _PAYLOAD := [
+# ContainerForEngine.payload oneof (module -> engine):
+# [client_name, field_number, proto_message_name]
+const _PAYLOAD_FOR_ENGINE := [
+	["ban", 6, "Ban"],
 	["connectionRequest", 7, "ConnectionRequest"],
+	["authVerify", 9, "AuthVerify"],
+	["command", 11, "Command"],
+	["commands", 12, "Commands"],
+	["messagePreProcess", 13, "MessagePreProcess"],
+	["messageInProcess", 14, "MessageInProcess"],
+	["messagePostProcess", 15, "MessagePostProcess"],
+	["log", 19, "Log"],
+	["err", 20, "Err"],
+	["sendToPlatforms", 21, "SendToPlatforms"],
+	["messageAck", 22, "MessageAck"],
+	["databaseQuery", 23, "DatabaseQuery"],
+	["moduleControl", 25, "ModuleControl"],
+	["prompt", 27, "Prompt"],
+	["promptResponse", 28, "PromptResponse"],
+	["auditFlag", 29, "AuditFlag"],
+	["predictionUpdate", 31, "PredictionUpdate"],
+	["pollUpdate", 32, "PollUpdate"],
+	["channelStats", 33, "ChannelStats"],
+]
+
+# ContainerForModule.payload oneof (engine -> module):
+# [client_name, field_number, proto_message_name]
+const _PAYLOAD_FOR_MODULE := [
+	["ban", 6, "Ban"],
 	["connectionRequestReturn", 8, "ConnectionRequestReturn"],
 	["authVerify", 9, "AuthVerify"],
 	["authNew", 10, "AuthNew"],
-	["commandPayload", 11, "Command"],
-	["commandsPayload", 12, "Commands"],
+	["commands", 12, "Commands"],
 	["messagePreProcess", 13, "MessagePreProcess"],
 	["messageInProcess", 14, "MessageInProcess"],
 	["messagePostProcess", 15, "MessagePostProcess"],
@@ -237,23 +353,25 @@ const _PAYLOAD := [
 	["log", 19, "Log"],
 	["err", 20, "Err"],
 	["sendToPlatforms", 21, "SendToPlatforms"],
-	["messageAck", 22, "MessageAck"],
-	["databaseQuery", 23, "DatabaseQuery"],
 	["databaseQueryResult", 24, "DatabaseQueryResult"],
-	["moduleControl", 25, "ModuleControl"],
 	["moduleControlResult", 26, "ModuleControlResult"],
 	["prompt", 27, "Prompt"],
 	["promptResponse", 28, "PromptResponse"],
-	["auditFlag", 29, "AuditFlag"],
+	["timelineQueryResult", 34, "TimelineQueryResult"],
+	["queryResponse", 35, "QueryResponse"],
+	["userDbResponse", 36, "UserDbResponse"],
+	["predictionUpdate", 37, "PredictionUpdate"],
+	["pollUpdate", 38, "PollUpdate"],
+	["channelStats", 39, "ChannelStats"],
 ]
 
+# Field names the module may send (ContainerForEngine oneof).
 const _PAYLOAD_FIELDS := [
-	"connectionRequest", "connectionRequestReturn", "authVerify", "authNew",
-	"commandPayload", "commandsPayload", "messagePreProcess",
-	"messageInProcess", "messagePostProcess", "timelineEvent", "userData",
-	"shutdown", "log", "err", "sendToPlatforms", "messageAck",
-	"databaseQuery", "databaseQueryResult", "moduleControl",
-	"moduleControlResult", "prompt", "promptResponse", "auditFlag",
+	"ban", "connectionRequest", "authVerify", "command", "commands",
+	"messagePreProcess", "messageInProcess", "messagePostProcess",
+	"log", "err", "sendToPlatforms", "messageAck", "databaseQuery",
+	"moduleControl", "prompt", "promptResponse", "auditFlag",
+	"predictionUpdate", "pollUpdate", "channelStats",
 ]
 
 # ---------------------------------------------------------------------------
@@ -285,7 +403,7 @@ func _init() -> void:
 		for f in _MESSAGES[msg_name]:
 			idx[f[1]] = [f[0], f[2]]
 		_field_index[msg_name] = idx
-	for p in _PAYLOAD:
+	for p in _PAYLOAD_FOR_MODULE:
 		_payload_by_field[p[1]] = [p[0], p[2]]
 
 ## Connects to the engine, performs single-connection PIN auth, stores the JWT
@@ -439,8 +557,9 @@ func close() -> void:
 # Sending / handlers
 # ---------------------------------------------------------------------------
 
-## Wraps a payload dict in a Container and sends it. field_name must be one of
-## the 23 client payload names (e.g. "log", "messageAck", "promptResponse").
+## Wraps a payload dict in a ContainerForEngine and sends it. field_name must be
+## one of the module->engine payload names (e.g. "log", "messageAck",
+## "promptResponse").
 func send_payload(field_name: String, payload: Dictionary) -> int:
 	if _ws == null or not _connected:
 		_last_error = "Not connected to engine"
@@ -525,6 +644,22 @@ func _handle_packet(pkt: PackedByteArray) -> void:
 			_ws.send(encode_container(reply))
 		return
 
+	# Receipt ping: a stage message with a non-empty message_uuid7 must be acked
+	# IMMEDIATELY (before any user handler runs) so the engine knows delivery
+	# happened; the result path is the module's own stage echo.
+	if active in ["messagePreProcess", "messageInProcess", "messagePostProcess"]:
+		var stage: Dictionary = container[active]
+		var message_uuid := str(stage.get("message_uuid7", ""))
+		if message_uuid != "":
+			var ack := {
+				"version": VERSION,
+				"auth_token": _auth_token,
+				"module_name": _module_name,
+				"module_instance_uuid7": _module_instance_uuid7,
+				"messageAck": {"message_uuid7": message_uuid},
+			}
+			_ws.send(encode_container(ack))
+
 	for cb in _receive_any:
 		cb.call(container, active)
 	if active != "" and _handlers.has(active):
@@ -604,20 +739,22 @@ func _resolve_pin(opts: Dictionary) -> int:
 # Public codec entry points
 # ---------------------------------------------------------------------------
 
-## Encodes a Container (header fields + at most one payload) to protobuf bytes.
+## Encodes a ContainerForEngine (header fields + at most one payload) to
+## protobuf bytes. `module_name` is always written (required on this direction).
 func encode_container(data: Dictionary) -> PackedByteArray:
 	var out := PackedByteArray()
 	_encode_field(out, 1, "int32", data.get("version", 0))
 	_encode_field(out, 3, "string", data.get("auth_token", ""))
 	_encode_field(out, 4, "string", data.get("module_name", ""))
 	_encode_field(out, 5, "string", data.get("module_instance_uuid7", ""))
-	for p in _PAYLOAD:
+	for p in _PAYLOAD_FOR_ENGINE:
 		var client_name: String = p[0]
 		if data.has(client_name) and data[client_name] != null:
 			_write_len_delimited(out, p[1], _encode_message(p[2], data[client_name]))
 	return out
 
-## Decodes a full Container; payload oneof fields that are not set stay null.
+## Decodes a full ContainerForModule; payload oneof fields that are not set stay
+## null. Field 4 (module_name) is reserved on this direction and never read.
 func decode_container(bytes: PackedByteArray) -> Dictionary:
 	var result := {
 		"version": 0,
@@ -625,7 +762,7 @@ func decode_container(bytes: PackedByteArray) -> Dictionary:
 		"module_name": "",
 		"module_instance_uuid7": "",
 	}
-	for p in _PAYLOAD:
+	for p in _PAYLOAD_FOR_MODULE:
 		result[p[0]] = null
 	var pos := [0]
 	while pos[0] < bytes.size():
@@ -644,10 +781,7 @@ func decode_container(bytes: PackedByteArray) -> Dictionary:
 				else:
 					_skip_field(wire, bytes, pos, field_no)
 			4:
-				if wire == 2:
-					result["module_name"] = _read_string(bytes, pos)
-				else:
-					_skip_field(wire, bytes, pos, field_no)
+				_skip_field(wire, bytes, pos, field_no)
 			5:
 				if wire == 2:
 					result["module_instance_uuid7"] = _read_string(bytes, pos)
@@ -673,7 +807,7 @@ func decode_message(msg_name: String, bytes: PackedByteArray) -> Dictionary:
 ## Returns the client name of the payload currently set in a decoded container
 ## ("" if none).
 func active_payload(container: Dictionary) -> String:
-	for p in _PAYLOAD:
+	for p in _PAYLOAD_FOR_MODULE:
 		if container.has(p[0]) and container[p[0]] != null:
 			return p[0]
 	return ""
@@ -1097,23 +1231,49 @@ static func codec_self_test() -> Dictionary:
 	if cr_enc != cr_exp:
 		failures.append("ConnectionRequest bytes mismatch: %s != %s" % [cr_enc.hex_encode(), cr_exp.hex_encode()])
 
-	# 3. Container round trip with nested connectionRequest
+	# 3. ContainerForEngine encode + ContainerForModule decode header check.
+	#    connectionRequest (tag 7) is module->engine only: it must be written on
+	#    the wire but must NOT surface from the inbound decoder.
 	var container := {
-		"version": 1,
+		"version": 2,
 		"auth_token": "",
 		"module_name": "gd-check",
 		"module_instance_uuid7": "12345678901234567890123456789012",
 		"connectionRequest": {"pin": 849820, "process_position": 4, "priority": 100, "module_instance_uuid7": ""},
 	}
 	var ct_bytes: PackedByteArray = lib.encode_container(container)
+	if not ct_bytes.has(0x3A):  # field 7, wire 2
+		failures.append("connectionRequest not on wire tag 7: %s" % ct_bytes.hex_encode())
 	var ct_dec: Dictionary = lib.decode_container(ct_bytes)
-	if ct_dec["version"] != 1 or ct_dec["module_name"] != "gd-check":
-		failures.append("Container header round trip failed")
-	if lib.active_payload(ct_dec) != "connectionRequest":
-		failures.append("active_payload mismatch")
-	var cr: Dictionary = ct_dec["connectionRequest"]
-	if cr.get("pin", 0) != 849820 or cr.get("priority", 0) != 100 or cr.get("process_position", -1) != 4:
-		failures.append("connectionRequest round trip failed: %s" % [cr])
+	if ct_dec["version"] != 2 or ct_dec["module_name"] != "":
+		failures.append("Container header round trip failed (module_name must be absent inbound)")
+	if lib.active_payload(ct_dec) != "":
+		failures.append("outbound-only connectionRequest leaked into ContainerForModule decode")
+
+	# 3b. Bidirectional payload round trip: log (tag 19) exists on both
+	#     directions, so it survives encode (ContainerForEngine) -> decode
+	#     (ContainerForModule).
+	var log_cont := {
+		"version": 2,
+		"auth_token": "tok",
+		"module_name": "gd-check",
+		"module_instance_uuid7": "12345678901234567890123456789012",
+		"log": {"log": "hello", "blob": PackedByteArray()},
+	}
+	var log_ct: Dictionary = lib.decode_container(lib.encode_container(log_cont))
+	if lib.active_payload(log_ct) != "log" or (log_ct["log"] as Dictionary).get("log", "") != "hello":
+		failures.append("log bidirectional round trip failed")
+
+	# 3c. Inbound-only payload decode: connectionRequestReturn (tag 8) is only
+	#     ever received from the engine. Build raw ContainerForModule bytes.
+	var crr_raw := PackedByteArray([0x08, 0x02])  # version=2
+	var crr_body: PackedByteArray = lib.encode_message("ConnectionRequestReturn",
+			{"module_instance_uuid7": "12345678901234567890123456789012"})
+	lib._write_len_delimited(crr_raw, 8, crr_body)
+	var crr_dec: Dictionary = lib.decode_container(crr_raw)
+	if lib.active_payload(crr_dec) != "connectionRequestReturn" \
+			or (crr_dec["connectionRequestReturn"] as Dictionary).get("module_instance_uuid7", "") != "12345678901234567890123456789012":
+		failures.append("connectionRequestReturn decode failed")
 
 	# 4. Rich nested round trip: UserData (bools, floats, repeated msgs, maps)
 	var ud := {
@@ -1163,5 +1323,83 @@ static func codec_self_test() -> Dictionary:
 	var u := uuid7()
 	if u.length() != 32 or u.substr(12, 1) != "7":
 		failures.append("uuid7 shape failed: %s" % u)
+
+	# 8. V2 inbound payload round trips (ChannelStats, PollUpdate,
+	# TimelineQueryResult, QueryResponse, UserDbResponse, PredictionUpdate)
+	var cs := {"platform": "twitch", "channel": "chan", "viewers": 42, "is_live": true, "title": "t", "updated_at": 123}
+	var cs_dec: Dictionary = lib.decode_message("ChannelStats", lib.encode_message("ChannelStats", cs))
+	if cs_dec["viewers"] != 42 or cs_dec["is_live"] != true or cs_dec["title"] != "t":
+		failures.append("ChannelStats round trip failed: %s" % [cs_dec])
+
+	var poll := {"poll_id": "p1", "prompt": "?", "options": ["a", "b"], "vote_counts": [1, 2], "total_votes": 3, "status": 1, "winner_index": 0, "hide_counts": true}
+	var poll_dec: Dictionary = lib.decode_message("PollUpdate", lib.encode_message("PollUpdate", poll))
+	if poll_dec["total_votes"] != 3 or (poll_dec["options"] as Array).size() != 2 \
+			or (poll_dec["vote_counts"] as Array).size() != 2 or poll_dec["hide_counts"] != true:
+		failures.append("PollUpdate round trip failed: %s" % [poll_dec])
+
+	var tqr := {"truncated": true, "request_id": "rq", "events": [
+		{"timeline_id_uuid7": "e1", "event_type": 1, "raw_message": "hi", "version": 2},
+	]}
+	var tqr_dec: Dictionary = lib.decode_message("TimelineQueryResult", lib.encode_message("TimelineQueryResult", tqr))
+	if tqr_dec["truncated"] != true or tqr_dec["request_id"] != "rq" \
+			or (tqr_dec["events"] as Array).size() != 1 \
+			or ((tqr_dec["events"] as Array)[0] as Dictionary).get("version", 0) != 2:
+		failures.append("TimelineQueryResult round trip failed: %s" % [tqr_dec])
+
+	var qr := {"request_id": "rid", "operation": 2, "success": true, "result": {"result_blob": PackedByteArray([1, 2])}}
+	var qr_dec: Dictionary = lib.decode_message("QueryResponse", lib.encode_message("QueryResponse", qr))
+	if qr_dec["request_id"] != "rid" or qr_dec["operation"] != 2 or qr_dec["success"] != true \
+			or (qr_dec["result"] as Dictionary).get("result_blob", PackedByteArray()) != PackedByteArray([1, 2]):
+		failures.append("QueryResponse round trip failed: %s" % [qr_dec])
+
+	var udb := {"success": true, "message": "ok", "user": {"uuid7": "u1", "username": "bob", "score": 5, "channels": [{"platform": "twitch", "channel_id": "c", "handle": "h"}]}, "users": [], "values": [{"key": "k", "value": "v"}], "rating_history": []}
+	var udb_dec: Dictionary = lib.decode_message("UserDbResponse", lib.encode_message("UserDbResponse", udb))
+	if udb_dec["success"] != true or ((udb_dec["user"] as Dictionary).get("username", "") != "bob") \
+			or ((udb_dec["user"] as Dictionary).get("score", 0) != 5) \
+			or ((udb_dec["values"] as Array).size() != 1):
+		failures.append("UserDbResponse round trip failed: %s" % [udb_dec])
+
+	var pred := {"prediction_id": "pd", "prompt": "?", "side_left_total": 10, "side_right_total": 20, "pot": 30, "status": 1, "winner_side": "left"}
+	var pred_dec: Dictionary = lib.decode_message("PredictionUpdate", lib.encode_message("PredictionUpdate", pred))
+	if pred_dec["pot"] != 30 or pred_dec["winner_side"] != "left" or pred_dec["status"] != 1:
+		failures.append("PredictionUpdate round trip failed: %s" % [pred_dec])
+
+	# 8b. Container-level decode of the new inbound-only payloads: build raw
+	#     ContainerForModule bytes and confirm each maps to the right field name.
+	var in_map := [
+		["timelineQueryResult", 34, "TimelineQueryResult", {"request_id": "rq"}],
+		["queryResponse", 35, "QueryResponse", {"request_id": "rid", "operation": 3, "success": true}],
+		["userDbResponse", 36, "UserDbResponse", {"success": true, "message": "ok"}],
+		["databaseQueryResult", 24, "DatabaseQueryResult", {"query_id": "q1", "success": true}],
+		["predictionUpdate", 37, "PredictionUpdate", {"prediction_id": "pd", "status": 1}],
+		["pollUpdate", 38, "PollUpdate", {"poll_id": "p1", "status": 1}],
+		["channelStats", 39, "ChannelStats", {"platform": "twitch", "viewers": 7}],
+	]
+	for item in in_map:
+		var raw := PackedByteArray([0x08, 0x02])  # version=2
+		var body: PackedByteArray = lib.encode_message(item[2], item[3])
+		lib._write_len_delimited(raw, item[1], body)
+		var dec: Dictionary = lib.decode_container(raw)
+		if lib.active_payload(dec) != item[0] or dec[item[0]] == null:
+			failures.append("inbound payload %s not decoded from tag %d" % [item[0], item[1]])
+
+	# 9. V2 rename check: command (11, module->engine only) and commands (12,
+	# both directions) use the renamed payload names on the wire.
+	var cmd_cont := {"version": 2, "auth_token": "", "module_name": "gd-check", "module_instance_uuid7": "",
+		"command": {"command_name": "ping", "command_flag": "!", "command_flags": []}}
+	var cmd_enc: PackedByteArray = lib.encode_container(cmd_cont)
+	# field 11 wire 2 -> key byte 0x5A
+	if not cmd_enc.has(0x5A):
+		failures.append("command payload not on wire tag 11: %s" % cmd_enc.hex_encode())
+
+	var cmds_cont := {"version": 2, "auth_token": "", "module_name": "gd-check", "module_instance_uuid7": "",
+		"commands": {"commands": [{"command_name": "ping", "command_flag": "!"}]}}
+	var cmds_enc: PackedByteArray = lib.encode_container(cmds_cont)
+	# field 12 wire 2 -> key byte 0x62
+	if not cmds_enc.has(0x62):
+		failures.append("commands payload not on wire tag 12: %s" % cmds_enc.hex_encode())
+	var cmds_cont_dec: Dictionary = lib.decode_container(cmds_enc)
+	if lib.active_payload(cmds_cont_dec) != "commands":
+		failures.append("commands payload rename failed")
 
 	return {"ok": failures.is_empty(), "failures": failures}

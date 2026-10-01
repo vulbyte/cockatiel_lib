@@ -1,19 +1,50 @@
 import fs from 'fs';
 import WebSocket from 'ws';
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 
 /**
- * Payload field mapping corresponding to Container.payload oneof definitions
- * (camelCase names as protobufjs exposes them). Full 23-field Container
- * surface — see CLIENT_CONTRACT.md.
+ * ContainerForEngine payload oneof fields (module -> engine), camelCase names
+ * as protobufjs exposes them. Every outbound frame is encoded as a
+ * ContainerForEngine with module_name.
  */
-const PAYLOAD_FIELDS = [
+const OUTBOUND_FIELDS = [
+  'ban',
   'connectionRequest',
+  'authVerify',
+  'command',
+  'commands',
+  'log',
+  'err',
+  'sendToPlatforms',
+  'messageAck',
+  'databaseQuery',
+  'moduleControl',
+  'prompt',
+  'promptResponse',
+  'auditFlag',
+  'chatMessageRejected',
+  'predictionUpdate',
+  'pollUpdate',
+  'channelStats',
+  'timelineQuery',
+  'queryRequest',
+  'userDbRequest',
+  'messagePreProcess',
+  'messageInProcess',
+  'messagePostProcess',
+];
+
+/**
+ * ContainerForModule payload oneof fields (engine -> module), camelCase names
+ * as protobufjs exposes them. Every inbound frame is decoded as a
+ * ContainerForModule (no module_name). Full surface — see CLIENT_CONTRACT.md.
+ */
+const INBOUND_FIELDS = [
+  'ban',
   'connectionRequestReturn',
   'authVerify',
   'authNew',
-  'commandPayload',
-  'commandsPayload',
+  'commands',
   'messagePreProcess',
   'messageInProcess',
   'messagePostProcess',
@@ -23,16 +54,20 @@ const PAYLOAD_FIELDS = [
   'log',
   'err',
   'sendToPlatforms',
-  'messageAck',
-  'databaseQuery',
   'databaseQueryResult',
-  'moduleControl',
   'moduleControlResult',
   'prompt',
   'promptResponse',
-  'auditFlag',
-  'chatMessageRejected',
+  'timelineQueryResult',
+  'queryResponse',
+  'userDbResponse',
+  'predictionUpdate',
+  'pollUpdate',
+  'channelStats',
 ];
+
+/** Stage payloads that must be receipt-acked before processing. */
+const STAGE_FIELDS = ['messagePreProcess', 'messageInProcess', 'messagePostProcess'];
 
 /**
  * Build the WebSocket for a given engine URL. When `COCKATIEL_TLS_CERT` is set
@@ -73,13 +108,13 @@ class HandlerRegistry {
   constructor() {
     this.all = [];
     this.handlers = new Map();
-    for (const field of PAYLOAD_FIELDS) {
+    for (const field of INBOUND_FIELDS) {
       this.handlers.set(field, []);
     }
   }
 
   dispatch(container) {
-    const activeField = PAYLOAD_FIELDS.find(
+    const activeField = INBOUND_FIELDS.find(
       (field) => container[field] !== undefined && container[field] !== null
     );
 
@@ -114,9 +149,13 @@ export class EngineConnection {
     };
     this.send = {};
 
-    // Dynamic registration for listen.<payload>() and send.<payload>()
-    for (const field of PAYLOAD_FIELDS) {
+    // Dynamic registration for listen.<payload>() and send.<payload>().
+    // Listeners only know inbound (ContainerForModule) payloads; senders only
+    // know outbound (ContainerForEngine) payloads.
+    for (const field of INBOUND_FIELDS) {
       this.listen[field] = (cb) => this.registry.handlers.get(field).push(cb);
+    }
+    for (const field of OUTBOUND_FIELDS) {
       this.send[field] = (data) => {
         if (this.ws.readyState !== WebSocket.OPEN) {
           throw new EngineError('Disconnected from engine');
@@ -128,7 +167,7 @@ export class EngineConnection {
           moduleInstanceUuid7: this._moduleInstanceUuid7,
           [field]: data,
         };
-        const buffer = this.pb.Container.encode(containerObj).finish();
+        const buffer = this.pb.ContainerForEngine.encode(containerObj).finish();
         this.ws.send(buffer);
       };
     }
@@ -155,13 +194,7 @@ export class EngineConnection {
 
   async disconnect(reason = '') {
     this._closing = true;
-    if (this.send.shutdown) {
-      try {
-        this.send.shutdown({ reason });
-      } catch (_) {
-        // Socket may already be closed
-      }
-    }
+    // Shutdown is engine -> module only on the V2 wire; a module just closes.
     this.ws.close();
   }
 
@@ -170,7 +203,7 @@ export class EngineConnection {
       if (!isBinary) return;
       let container;
       try {
-        container = this.pb.Container.decode(new Uint8Array(data));
+        container = this.pb.ContainerForModule.decode(new Uint8Array(data));
       } catch (_err) {
         return; // Ignore decode failures on malformed frames
       }
@@ -188,11 +221,32 @@ export class EngineConnection {
             moduleInstanceUuid7: this._moduleInstanceUuid7,
             authVerify: { curAuth: this._authToken },
           };
-          this.ws.send(this.pb.Container.encode(reply).finish());
+          this.ws.send(this.pb.ContainerForEngine.encode(reply).finish());
         } catch (_err) {
           // ignore
         }
         return;
+      }
+
+      // Receipt-ack: a stage message with a non-empty message_uuid7 is acked
+      // to the engine immediately, BEFORE any user handler runs.
+      for (const field of STAGE_FIELDS) {
+        const stage = container[field];
+        if (stage && stage.messageUuid7) {
+          try {
+            const ack = {
+              version: PROTOCOL_VERSION,
+              authToken: this._authToken,
+              moduleName: this.moduleName,
+              moduleInstanceUuid7: this._moduleInstanceUuid7,
+              messageAck: { messageUuid7: stage.messageUuid7 },
+            };
+            this.ws.send(this.pb.ContainerForEngine.encode(ack).finish());
+          } catch (_err) {
+            // ignore
+          }
+          break;
+        }
       }
 
       this.registry.dispatch(container);
@@ -230,7 +284,7 @@ export class EngineConnection {
     const oldWs = this.ws;
     this.ws = newWs;
     this._setupSocket();
-    this.ws.send(this.pb.Container.encode(reauth).finish());
+    this.ws.send(this.pb.ContainerForEngine.encode(reauth).finish());
     try {
       oldWs.close();
     } catch (_err) {
@@ -252,7 +306,8 @@ export class EngineConnection {
  * @param {string} [opts.processPosition] Position ("preprocess" | "inprocess" | "postprocess" | "connection")
  * @param {number} [opts.priority] Connection priority (default: 100)
  * @param {string} [opts.moduleInstanceUuid7] UUID7 string
- * @param {Object} pb Compiled Protobuf definitions module containing `Container`
+ * @param {Object} pb Compiled Protobuf definitions module containing
+ *   `ContainerForEngine` (outbound) and `ContainerForModule` (inbound)
  */
 export async function connectToEngine(opts, pb) {
   const pin = opts.pin != null ? opts.pin : (process.env.COCKATIEL_PIN != null ? parseInt(process.env.COCKATIEL_PIN, 10) : 0);
@@ -277,7 +332,7 @@ export async function connectToEngine(opts, pb) {
     },
   };
 
-  ws.send(pb.Container.encode(handshakeRequest).finish());
+  ws.send(pb.ContainerForEngine.encode(handshakeRequest).finish());
 
   const handshakeResponse = await new Promise((resolve, reject) => {
     ws.once('message', (data) => resolve(data));
@@ -287,7 +342,7 @@ export async function connectToEngine(opts, pb) {
 
   let responseContainer;
   try {
-    responseContainer = pb.Container.decode(new Uint8Array(handshakeResponse));
+    responseContainer = pb.ContainerForModule.decode(new Uint8Array(handshakeResponse));
   } catch (e) {
     ws.close();
     throw new EngineError(`Failed to decode handshake response: ${e.message}`);

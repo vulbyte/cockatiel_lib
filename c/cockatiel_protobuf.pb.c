@@ -6,100 +6,218 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(cockatiel_protobuf_v1_AuthNew, cockatiel_protobuf_v1_AuthNew, 2)
+
+/* The following messages exceed 64kB in size: cockatiel_protobuf_TimelineQueryResult, cockatiel_protobuf_UserDbResponse, cockatiel_protobuf_ContainerForModule */
+
+/* The PB_FIELD_32BIT compilation option must be defined to support messages that exceed 64 kB in size. */
+#ifndef PB_FIELD_32BIT
+#error Enable PB_FIELD_32BIT to support messages exceeding 64kB in size: cockatiel_protobuf_TimelineQueryResult, cockatiel_protobuf_UserDbResponse, cockatiel_protobuf_ContainerForModule
+#endif
+PB_BIND(cockatiel_protobuf_AuthNew, cockatiel_protobuf_AuthNew, 2)
 
 
-PB_BIND(cockatiel_protobuf_v1_AuthVerify, cockatiel_protobuf_v1_AuthVerify, 2)
+PB_BIND(cockatiel_protobuf_AuthVerify, cockatiel_protobuf_AuthVerify, 2)
 
 
-PB_BIND(cockatiel_protobuf_v1_Ban, cockatiel_protobuf_v1_Ban, AUTO)
+PB_BIND(cockatiel_protobuf_Ban, cockatiel_protobuf_Ban, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_Flag, cockatiel_protobuf_v1_Flag, 2)
+PB_BIND(cockatiel_protobuf_Flag, cockatiel_protobuf_Flag, 2)
 
 
-PB_BIND(cockatiel_protobuf_v1_Command, cockatiel_protobuf_v1_Command, 4)
+PB_BIND(cockatiel_protobuf_Command, cockatiel_protobuf_Command, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_Commands, cockatiel_protobuf_v1_Commands, 4)
+PB_BIND(cockatiel_protobuf_Commands, cockatiel_protobuf_Commands, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_Commendation, cockatiel_protobuf_v1_Commendation, AUTO)
+PB_BIND(cockatiel_protobuf_Commendation, cockatiel_protobuf_Commendation, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_Reprimand, cockatiel_protobuf_v1_Reprimand, AUTO)
+PB_BIND(cockatiel_protobuf_Reprimand, cockatiel_protobuf_Reprimand, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_UserStylingTemplate, cockatiel_protobuf_v1_UserStylingTemplate, AUTO)
+PB_BIND(cockatiel_protobuf_UserStylingTemplate, cockatiel_protobuf_UserStylingTemplate, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_UserStylingTemplate_CssPropertiesEntry, cockatiel_protobuf_v1_UserStylingTemplate_CssPropertiesEntry, AUTO)
+PB_BIND(cockatiel_protobuf_UserStylingTemplate_CssPropertiesEntry, cockatiel_protobuf_UserStylingTemplate_CssPropertiesEntry, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_UserData, cockatiel_protobuf_v1_UserData, AUTO)
+PB_BIND(cockatiel_protobuf_UserData, cockatiel_protobuf_UserData, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_UserData_PlatformIdsEntry, cockatiel_protobuf_v1_UserData_PlatformIdsEntry, AUTO)
+PB_BIND(cockatiel_protobuf_UserData_PlatformIdsEntry, cockatiel_protobuf_UserData_PlatformIdsEntry, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_ConnectionRequest, cockatiel_protobuf_v1_ConnectionRequest, AUTO)
+PB_BIND(cockatiel_protobuf_ConnectionRequest, cockatiel_protobuf_ConnectionRequest, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_ConnectionRequestReturn, cockatiel_protobuf_v1_ConnectionRequestReturn, AUTO)
+PB_BIND(cockatiel_protobuf_ConnectionRequestReturn, cockatiel_protobuf_ConnectionRequestReturn, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_Err, cockatiel_protobuf_v1_Err, 4)
+PB_BIND(cockatiel_protobuf_Err, cockatiel_protobuf_Err, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_Log, cockatiel_protobuf_v1_Log, 4)
+PB_BIND(cockatiel_protobuf_Log, cockatiel_protobuf_Log, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_Shutdown, cockatiel_protobuf_v1_Shutdown, 2)
+PB_BIND(cockatiel_protobuf_Shutdown, cockatiel_protobuf_Shutdown, 2)
 
 
-PB_BIND(cockatiel_protobuf_v1_SendToPlatforms, cockatiel_protobuf_v1_SendToPlatforms, 4)
+PB_BIND(cockatiel_protobuf_SendToPlatforms, cockatiel_protobuf_SendToPlatforms, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_MessageAck, cockatiel_protobuf_v1_MessageAck, AUTO)
+PB_BIND(cockatiel_protobuf_MessageAck, cockatiel_protobuf_MessageAck, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_DatabaseQuery, cockatiel_protobuf_v1_DatabaseQuery, 4)
+PB_BIND(cockatiel_protobuf_ModuleControl, cockatiel_protobuf_ModuleControl, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_DatabaseQueryResult, cockatiel_protobuf_v1_DatabaseQueryResult, 4)
+PB_BIND(cockatiel_protobuf_ModuleControlResult, cockatiel_protobuf_ModuleControlResult, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_ModuleControl, cockatiel_protobuf_v1_ModuleControl, AUTO)
+PB_BIND(cockatiel_protobuf_Prompt, cockatiel_protobuf_Prompt, 2)
 
 
-PB_BIND(cockatiel_protobuf_v1_ModuleControlResult, cockatiel_protobuf_v1_ModuleControlResult, 4)
+PB_BIND(cockatiel_protobuf_PromptResponse, cockatiel_protobuf_PromptResponse, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_Prompt, cockatiel_protobuf_v1_Prompt, 2)
+PB_BIND(cockatiel_protobuf_ChatMessage, cockatiel_protobuf_ChatMessage, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_PromptResponse, cockatiel_protobuf_v1_PromptResponse, 4)
+PB_BIND(cockatiel_protobuf_MessagePreProcess, cockatiel_protobuf_MessagePreProcess, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_AuditFlag, cockatiel_protobuf_v1_AuditFlag, 4)
+PB_BIND(cockatiel_protobuf_MessageInProcess, cockatiel_protobuf_MessageInProcess, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_ChatMessage, cockatiel_protobuf_v1_ChatMessage, 4)
+PB_BIND(cockatiel_protobuf_MessagePostProcess, cockatiel_protobuf_MessagePostProcess, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_MessagePreProcess, cockatiel_protobuf_v1_MessagePreProcess, 4)
+PB_BIND(cockatiel_protobuf_AuditFlag, cockatiel_protobuf_AuditFlag, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_MessageInProcess, cockatiel_protobuf_v1_MessageInProcess, 4)
+PB_BIND(cockatiel_protobuf_ChatMessageRejected, cockatiel_protobuf_ChatMessageRejected, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_MessagePostProcess, cockatiel_protobuf_v1_MessagePostProcess, 4)
+PB_BIND(cockatiel_protobuf_TimelineEvent, cockatiel_protobuf_TimelineEvent, 4)
 
 
-PB_BIND(cockatiel_protobuf_v1_TimelineEvent, cockatiel_protobuf_v1_TimelineEvent, 4)
+PB_BIND(cockatiel_protobuf_TimelineQuery, cockatiel_protobuf_TimelineQuery, AUTO)
 
 
-PB_BIND(cockatiel_protobuf_v1_Container, cockatiel_protobuf_v1_Container, 4)
+PB_BIND(cockatiel_protobuf_TimelineQueryResult, cockatiel_protobuf_TimelineQueryResult, 4)
+
+
+PB_BIND(cockatiel_protobuf_DatabaseQuery, cockatiel_protobuf_DatabaseQuery, 4)
+
+
+PB_BIND(cockatiel_protobuf_DatabaseQueryResult, cockatiel_protobuf_DatabaseQueryResult, 4)
+
+
+PB_BIND(cockatiel_protobuf_ActorRef, cockatiel_protobuf_ActorRef, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_QueryParams, cockatiel_protobuf_QueryParams, 2)
+
+
+PB_BIND(cockatiel_protobuf_QueryResult, cockatiel_protobuf_QueryResult, 4)
+
+
+PB_BIND(cockatiel_protobuf_QueryRequest, cockatiel_protobuf_QueryRequest, 2)
+
+
+PB_BIND(cockatiel_protobuf_QueryResponse, cockatiel_protobuf_QueryResponse, 4)
+
+
+PB_BIND(cockatiel_protobuf_ChannelRef, cockatiel_protobuf_ChannelRef, 2)
+
+
+PB_BIND(cockatiel_protobuf_User, cockatiel_protobuf_User, 4)
+
+
+PB_BIND(cockatiel_protobuf_RatingHistoryEntry, cockatiel_protobuf_RatingHistoryEntry, 4)
+
+
+PB_BIND(cockatiel_protobuf_AddUserRequest, cockatiel_protobuf_AddUserRequest, 2)
+
+
+PB_BIND(cockatiel_protobuf_DeleteUserRequest, cockatiel_protobuf_DeleteUserRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_ScoreRequest, cockatiel_protobuf_ScoreRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_RatingRequest, cockatiel_protobuf_RatingRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_AddChannelRequest, cockatiel_protobuf_AddChannelRequest, 2)
+
+
+PB_BIND(cockatiel_protobuf_RemoveChannelRequest, cockatiel_protobuf_RemoveChannelRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_GetUserRequest, cockatiel_protobuf_GetUserRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_ListUsersRequest, cockatiel_protobuf_ListUsersRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_UpdateFlagsRequest, cockatiel_protobuf_UpdateFlagsRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_SetRolesRequest, cockatiel_protobuf_SetRolesRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_UserValueRequest, cockatiel_protobuf_UserValueRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_UserValueResult, cockatiel_protobuf_UserValueResult, 4)
+
+
+PB_BIND(cockatiel_protobuf_UserValueDeleteRequest, cockatiel_protobuf_UserValueDeleteRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_UserValueListRequest, cockatiel_protobuf_UserValueListRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_DeductScoreRequest, cockatiel_protobuf_DeductScoreRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_GetRatingHistoryRequest, cockatiel_protobuf_GetRatingHistoryRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_IncrementMessagesRequest, cockatiel_protobuf_IncrementMessagesRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_SetRankConfigRequest, cockatiel_protobuf_SetRankConfigRequest, AUTO)
+
+
+PB_BIND(cockatiel_protobuf_UserDbRequest, cockatiel_protobuf_UserDbRequest, 2)
+
+
+PB_BIND(cockatiel_protobuf_UserDbResponse, cockatiel_protobuf_UserDbResponse, 4)
+
+
+PB_BIND(cockatiel_protobuf_PredictionUpdate, cockatiel_protobuf_PredictionUpdate, 2)
+
+
+PB_BIND(cockatiel_protobuf_PollUpdate, cockatiel_protobuf_PollUpdate, 2)
+
+
+PB_BIND(cockatiel_protobuf_ChannelStats, cockatiel_protobuf_ChannelStats, 2)
+
+
+PB_BIND(cockatiel_protobuf_ContainerForModule, cockatiel_protobuf_ContainerForModule, 4)
+
+
+PB_BIND(cockatiel_protobuf_ContainerForEngine, cockatiel_protobuf_ContainerForEngine, 4)
+
+
+
+
+
+
 
 
 

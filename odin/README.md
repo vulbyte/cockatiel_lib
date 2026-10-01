@@ -5,8 +5,11 @@ A native Odin client for the Cockatiel chat engine. One self-contained package â
 (`core:net`, `core:crypto`, `core:encoding`, `core:strings`, `core:time`):
 
 - hand-rolled **protobuf wire codec** (varint, length-delimited, fixed32,
-  packed repeats, maps) covering the **entire** `Container` + all 23 payload
-  messages in the oneof (decode everything; encode what a module sends)
+  packed repeats, maps) covering the **entire** `ContainerForEngine` /
+  `ContainerForModule` surface (v2 wire, `version = 2`): decode every inbound
+  payload (including `timeline_query_result`, `query_response`,
+  `user_db_response`, `prediction_update`, `poll_update`, `channel_stats`);
+  encode what a module sends (`ContainerForEngine` with `module_name`)
 - hand-rolled **WebSocket transport** (RFC 6455 upgrade handshake + frame
   encode/decode with masking) on top of `core:net` TCP sockets
 - optional **WSS (TLS)**: when `COCKATIEL_TLS_CERT` points at the engine's
@@ -19,6 +22,8 @@ A native Odin client for the Cockatiel chat engine. One self-contained package â
   module-local `.env` loader
 - **automatic AuthVerify liveness answers** inside the receive loop (not a user
   callback, not blocked by slow handlers)
+- **receipt-ack**: a stage message with a non-empty `message_uuid7` is acked to
+  the engine (`message_ack`) immediately, before user callbacks run
 - **reconnect**: fresh socket + `ConnectionRequest` carrying the stored JWT
   (PIN not needed)
 - **UUIDv7** generator (RFC 9562, 36-char dashed form)

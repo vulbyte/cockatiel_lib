@@ -3,7 +3,9 @@
 --
 -- One self-contained module implementing CLIENT_CONTRACT.md:
 --   * hand-rolled proto3 wire codec (pure Lua, 32-bit split 64-bit varints)
---     covering the ENTIRE `Container` + all 23 payload messages
+--     covering BOTH V2 containers: `ContainerForEngine` (module -> engine,
+--     module_name set) and `ContainerForModule` (engine -> module, no
+--     module_name) plus their full payload sets
 --   * RFC6455 WebSocket transport on raw libc sockets via FFI (no deps)
 --   * optional WSS/TLS: wraps the socket in an OpenSSL client session via FFI
 --     (libssl) when COCKATIEL_TLS_CERT is set or the URL is wss://; the engine's
@@ -93,7 +95,7 @@ end
 -- Constants
 -- ---------------------------------------------------------------------------
 
-local VERSION = 1
+local VERSION = 2
 local DEFAULT_URL = "ws://127.0.0.1:9734"
 local DEFAULT_TIMEOUT_MS = 10000
 local WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -294,16 +296,131 @@ local _MESSAGES = {
         { "user_uuid7", 11, "string" },
         { "version", 12, "uint32" },
     },
+    TimelineQueryResult = {
+        { "events", 1, "rep:msg:TimelineEvent" },
+        { "truncated", 2, "bool" },
+        { "request_id", 3, "string" },
+    },
+    QueryResult = {
+        { "result_blob", 1, "bytes" },
+    },
+    QueryResponse = {
+        { "request_id", 1, "string" },
+        { "operation", 2, "enum" },
+        { "success", 3, "bool" },
+        { "error", 4, "string" },
+        { "result", 5, "msg:QueryResult" },
+    },
+    ChannelRef = {
+        { "platform", 1, "string" },
+        { "channel_id", 2, "string" },
+        { "handle", 3, "string" },
+    },
+    User = {
+        { "uuid7", 1, "string" },
+        { "username", 2, "string" },
+        { "is_sponsor", 3, "bool" },
+        { "is_moderator", 4, "bool" },
+        { "is_admin", 5, "bool" },
+        { "is_owner", 6, "bool" },
+        { "score", 7, "int64" },
+        { "commendations", 8, "int64" },
+        { "reprimands", 9, "int64" },
+        { "channels", 10, "rep:msg:ChannelRef" },
+        { "flags", 11, "string" },
+        { "created_at", 12, "int64" },
+        { "updated_at", 13, "int64" },
+        { "total_score", 14, "int64" },
+        { "messages_sent", 15, "int64" },
+        { "rank", 16, "int64" },
+    },
+    UserValueResult = {
+        { "key", 1, "string" },
+        { "value", 2, "string" },
+    },
+    RatingHistoryEntry = {
+        { "uuid7", 1, "string" },
+        { "giver_uuid7", 2, "string" },
+        { "kind", 3, "string" },
+        { "platform", 4, "string" },
+        { "handle", 5, "string" },
+        { "reason", 6, "string" },
+        { "created_at", 7, "int64" },
+    },
+    UserDbResponse = {
+        { "success", 1, "bool" },
+        { "error", 2, "string" },
+        { "user", 3, "msg:User" },
+        { "users", 4, "rep:msg:User" },
+        { "message", 5, "string" },
+        { "value", 6, "msg:UserValueResult" },
+        { "values", 7, "rep:msg:UserValueResult" },
+        { "rating_history", 8, "rep:msg:RatingHistoryEntry" },
+    },
+    PredictionUpdate = {
+        { "prediction_id", 1, "string" },
+        { "prompt", 2, "string" },
+        { "side_left_label", 3, "string" },
+        { "side_right_label", 4, "string" },
+        { "side_left_total", 5, "int64" },
+        { "side_right_total", 6, "int64" },
+        { "pot", 7, "int64" },
+        { "status", 8, "enum" },
+        { "winner_side", 9, "string" },
+    },
+    PollUpdate = {
+        { "poll_id", 1, "string" },
+        { "prompt", 2, "string" },
+        { "options", 3, "rep:string" },
+        { "vote_counts", 4, "rep:int64" },
+        { "total_votes", 5, "int64" },
+        { "status", 6, "enum" },
+        { "winner_index", 7, "int32" },
+        { "hide_counts", 8, "bool" },
+    },
+    ChannelStats = {
+        { "platform", 1, "string" },
+        { "channel", 2, "string" },
+        { "viewers", 3, "int64" },
+        { "is_live", 4, "bool" },
+        { "title", 5, "string" },
+        { "updated_at", 6, "int64" },
+    },
 }
 
--- Container.payload oneof: {client_name, field_number, proto_message_name}
-local _PAYLOAD = {
+-- ContainerForEngine.payload oneof (module -> engine):
+-- {client_name, field_number, proto_message_name}
+local _PAYLOAD_FOR_ENGINE = {
+    { "ban", 6, "Ban" },
     { "connectionRequest", 7, "ConnectionRequest" },
+    { "authVerify", 9, "AuthVerify" },
+    { "command", 11, "Command" },
+    { "commands", 12, "Commands" },
+    { "messagePreProcess", 13, "MessagePreProcess" },
+    { "messageInProcess", 14, "MessageInProcess" },
+    { "messagePostProcess", 15, "MessagePostProcess" },
+    { "log", 19, "Log" },
+    { "err", 20, "Err" },
+    { "sendToPlatforms", 21, "SendToPlatforms" },
+    { "messageAck", 22, "MessageAck" },
+    { "databaseQuery", 23, "DatabaseQuery" },
+    { "moduleControl", 25, "ModuleControl" },
+    { "prompt", 27, "Prompt" },
+    { "promptResponse", 28, "PromptResponse" },
+    { "auditFlag", 29, "AuditFlag" },
+    { "predictionUpdate", 31, "PredictionUpdate" },
+    { "pollUpdate", 32, "PollUpdate" },
+    { "channelStats", 33, "ChannelStats" },
+}
+
+-- ContainerForModule.payload oneof (engine -> module):
+-- {client_name, field_number, proto_message_name}
+local _PAYLOAD_FOR_MODULE = {
+    { "ban", 6, "Ban" },
     { "connectionRequestReturn", 8, "ConnectionRequestReturn" },
     { "authVerify", 9, "AuthVerify" },
     { "authNew", 10, "AuthNew" },
-    { "commandPayload", 11, "Command" },
-    { "commandsPayload", 12, "Commands" },
+    { "commands", 12, "Commands" },
     { "messagePreProcess", 13, "MessagePreProcess" },
     { "messageInProcess", 14, "MessageInProcess" },
     { "messagePostProcess", 15, "MessagePostProcess" },
@@ -313,21 +430,25 @@ local _PAYLOAD = {
     { "log", 19, "Log" },
     { "err", 20, "Err" },
     { "sendToPlatforms", 21, "SendToPlatforms" },
-    { "messageAck", 22, "MessageAck" },
-    { "databaseQuery", 23, "DatabaseQuery" },
     { "databaseQueryResult", 24, "DatabaseQueryResult" },
-    { "moduleControl", 25, "ModuleControl" },
     { "moduleControlResult", 26, "ModuleControlResult" },
     { "prompt", 27, "Prompt" },
     { "promptResponse", 28, "PromptResponse" },
-    { "auditFlag", 29, "AuditFlag" },
+    { "timelineQueryResult", 34, "TimelineQueryResult" },
+    { "queryResponse", 35, "QueryResponse" },
+    { "userDbResponse", 36, "UserDbResponse" },
+    { "predictionUpdate", 37, "PredictionUpdate" },
+    { "pollUpdate", 38, "PollUpdate" },
+    { "channelStats", 39, "ChannelStats" },
 }
 
 local _PAYLOAD_FIELDS = {}
 local _PAYLOAD_BY_FIELD = {}
 local _FIELD_INDEX = {}
-for _, p in ipairs(_PAYLOAD) do
+for _, p in ipairs(_PAYLOAD_FOR_ENGINE) do
     _PAYLOAD_FIELDS[#_PAYLOAD_FIELDS + 1] = p[1]
+end
+for _, p in ipairs(_PAYLOAD_FOR_MODULE) do
     _PAYLOAD_BY_FIELD[p[2]] = { p[1], p[3] }
 end
 for name, fields in pairs(_MESSAGES) do
@@ -795,6 +916,8 @@ local function skip_field(wire, buf, pos)
     end
 end
 
+local decode_scalar_raw  -- forward-declared; assigned below (used by decode_repeated)
+
 local function decode_repeated(result, name, inner, wire, buf, pos)
     if inner:sub(1, 4) == "msg:" then
         if wire == 2 then
@@ -826,7 +949,7 @@ local function decode_repeated(result, name, inner, wire, buf, pos)
     return false
 end
 
-local function decode_scalar_raw(inner, buf, pos)
+decode_scalar_raw = function(inner, buf, pos)
     if inner == "int32" then
         local lo = read_varint(buf, pos)
         return to_i32(lo)
@@ -952,7 +1075,8 @@ function decode_message(msg_name, buf)
     return result
 end
 
--- Encodes a full Container (version/auth/module headers + at most one payload).
+-- Encodes a full ContainerForEngine (version/auth/module_name/instance headers
+-- + at most one payload). module_name is always written (required here).
 function encode_container(data)
     local out = {}
     if data.version and data.version ~= 0 then
@@ -968,7 +1092,7 @@ function encode_container(data)
     if data.module_instance_uuid7 and data.module_instance_uuid7 ~= "" then
         encode_len_delimited(out, 5, data.module_instance_uuid7)
     end
-    for _, p in ipairs(_PAYLOAD) do
+    for _, p in ipairs(_PAYLOAD_FOR_ENGINE) do
         local v = data[p[1]]
         if v ~= nil then
             encode_len_delimited(out, p[2], encode_message(p[3], v))
@@ -977,7 +1101,8 @@ function encode_container(data)
     return table.concat(out)
 end
 
--- Decodes a full Container. Payload oneof fields that are absent stay nil.
+-- Decodes a full ContainerForModule. Payload oneof fields that are absent stay
+-- nil. Field 4 (module_name) is reserved on this direction and never read.
 function decode_container(buf)
     local result = {
         version = 0,
@@ -985,7 +1110,7 @@ function decode_container(buf)
         module_name = "",
         module_instance_uuid7 = "",
     }
-    for _, p in ipairs(_PAYLOAD) do
+    for _, p in ipairs(_PAYLOAD_FOR_MODULE) do
         result[p[1]] = nil
     end
     local pos = { 1 }
@@ -1004,7 +1129,7 @@ function decode_container(buf)
         elseif field_no == 3 then
             if wire == 2 then result.auth_token = read_string(buf, pos) else skip_field(wire, buf, pos) end
         elseif field_no == 4 then
-            if wire == 2 then result.module_name = read_string(buf, pos) else skip_field(wire, buf, pos) end
+            skip_field(wire, buf, pos)
         elseif field_no == 5 then
             if wire == 2 then result.module_instance_uuid7 = read_string(buf, pos) else skip_field(wire, buf, pos) end
         else
@@ -1024,7 +1149,7 @@ end
 
 -- Returns the client name of the payload set in a decoded container ("" if none).
 local function active_payload(container)
-    for _, p in ipairs(_PAYLOAD) do
+    for _, p in ipairs(_PAYLOAD_FOR_MODULE) do
         if container[p[1]] ~= nil then
             return p[1]
         end
@@ -1679,6 +1804,23 @@ function CockatielClient:_dispatch(container)
         end
         return
     end
+    -- Receipt ping: a stage message with a non-empty message_uuid7 must be acked
+    -- IMMEDIATELY (before any user handler runs) so the engine knows delivery
+    -- happened; the result path is the module's own stage echo.
+    if active == "messagePreProcess" or active == "messageInProcess" or active == "messagePostProcess" then
+        local stage = container[active]
+        local message_uuid = stage and stage.message_uuid7 or ""
+        if message_uuid ~= "" then
+            local ack = {
+                version = VERSION,
+                auth_token = self.auth_token,
+                module_name = self.module_name,
+                module_instance_uuid7 = self.module_instance_uuid7,
+                messageAck = { message_uuid7 = message_uuid },
+            }
+            self:_send_container(ack)
+        end
+    end
     for _, cb in ipairs(self._receive_any) do
         cb(container, active)
     end
@@ -1776,8 +1918,9 @@ function CockatielClient:connect(opts)
     return true
 end
 
---- Wraps a payload in a Container and sends it. field_name must be one of the
---- 23 client payload names (e.g. "log", "messageAck", "promptResponse").
+--- Wraps a payload in a ContainerForEngine and sends it. field_name must be one
+--- of the module->engine payload names (e.g. "log", "messageAck",
+--- "promptResponse").
 function CockatielClient:send(field_name, payload)
     if not self.connected or not self.sock then
         self.last_error = "not connected to engine"
@@ -1957,7 +2100,8 @@ CockatielClient.sleep_ms = sleep_ms
 CockatielClient.now_ms = now_ms
 CockatielClient._PAYLOAD_FIELDS = _PAYLOAD_FIELDS
 CockatielClient._MESSAGES = _MESSAGES
-CockatielClient._PAYLOAD = _PAYLOAD
+CockatielClient._PAYLOAD_FOR_ENGINE = _PAYLOAD_FOR_ENGINE
+CockatielClient._PAYLOAD_FOR_MODULE = _PAYLOAD_FOR_MODULE
 
 -- ---------------------------------------------------------------------------
 -- Codec / wire self-test (no server needed). Returns {ok, failures}.
@@ -1981,20 +2125,53 @@ function CockatielClient.codec_self_test()
     local cr = encode_message("ConnectionRequest", { pin = 150, priority = 100 })
     expect(cr == "\8\150\1\24\100", "ConnectionRequest bytes mismatch")
 
-    -- 3. Container round trip with nested connectionRequest
+    -- 3. ContainerForEngine encode + ContainerForModule decode header check.
+    --    connectionRequest (tag 7) is module->engine only: it must be written
+    --    on the wire but must NOT surface from the inbound decoder.
     local container = {
-        version = 1,
+        version = 2,
         auth_token = "",
         module_name = "lua-check",
         module_instance_uuid7 = "12345678901234567890123456789012",
         connectionRequest = { pin = 849820, process_position = 4, priority = 100, module_instance_uuid7 = "" },
     }
-    local ct = decode_container(encode_container(container))
-    expect(ct.version == 1 and ct.module_name == "lua-check", "Container header round trip failed")
-    expect(active_payload(ct) == "connectionRequest", "active_payload mismatch")
-    local cr2 = ct.connectionRequest
-    expect(cr2 and cr2.pin == 849820 and cr2.priority == 100 and cr2.process_position == 4,
-        "connectionRequest round trip failed")
+    local ct_bytes = encode_container(container)
+    -- field 7 wire 2 -> key bytes 0x3A
+    if not string.find(ct_bytes, string.char(0x3A), 1, true) then
+        expect(false, "connectionRequest not on wire tag 7")
+    end
+    local ct = decode_container(ct_bytes)
+    expect(ct.version == 2 and ct.module_name == "", "Container header round trip failed (module_name must be absent inbound)")
+    expect(active_payload(ct) == "", "outbound-only connectionRequest leaked into ContainerForModule decode")
+
+    -- 3b. Bidirectional payload round trip: log (tag 19) exists on both
+    --     directions, so it survives encode (ContainerForEngine) -> decode
+    --     (ContainerForModule).
+    local log_cont = {
+        version = 2,
+        auth_token = "tok",
+        module_name = "lua-check",
+        module_instance_uuid7 = "12345678901234567890123456789012",
+        log = { log = "hello", blob = "" },
+    }
+    local log_ct = decode_container(encode_container(log_cont))
+    expect(active_payload(log_ct) == "log" and log_ct.log and log_ct.log.log == "hello",
+        "log bidirectional round trip failed")
+
+    -- 3c. Inbound-only payload decode: connectionRequestReturn (tag 8). Build
+    --     raw ContainerForModule bytes.
+    local crr_parts = { "\8\2" } -- version=2
+    local crr_body = encode_message("ConnectionRequestReturn",
+        { module_instance_uuid7 = "12345678901234567890123456789012" })
+    encode_key(crr_parts, 8, 2)
+    encode_varint(crr_parts, #crr_body)
+    crr_parts[#crr_parts + 1] = crr_body
+    local crr_raw = table.concat(crr_parts)
+    local crr_dec = decode_container(crr_raw)
+    expect(active_payload(crr_dec) == "connectionRequestReturn"
+        and crr_dec.connectionRequestReturn
+        and crr_dec.connectionRequestReturn.module_instance_uuid7 == "12345678901234567890123456789012",
+        "connectionRequestReturn decode failed")
 
     -- 4. Rich nested round trip: UserData (bools, repeated msgs, maps)
     local ud = {
@@ -2051,6 +2228,77 @@ function CockatielClient.codec_self_test()
     -- 10. uuid7 shape
     local u = uuid7()
     expect(#u == 32 and u:sub(13, 13) == "7", "uuid7 shape failed: " .. u)
+
+    -- 11. V2 inbound payload round trips (message-level)
+    local cs = { platform = "twitch", channel = "chan", viewers = 42, is_live = true, title = "t", updated_at = 123 }
+    local cs_dec = decode_message("ChannelStats", encode_message("ChannelStats", cs))
+    expect(cs_dec.viewers == 42 and cs_dec.is_live == true and cs_dec.title == "t", "ChannelStats round trip failed")
+
+    local poll = { poll_id = "p1", prompt = "?", options = { "a", "b" }, vote_counts = { 1, 2 }, total_votes = 3, status = 1, winner_index = 0, hide_counts = true }
+    local poll_dec = decode_message("PollUpdate", encode_message("PollUpdate", poll))
+    expect(poll_dec.total_votes == 3 and #poll_dec.options == 2 and #poll_dec.vote_counts == 2 and poll_dec.hide_counts == true,
+        "PollUpdate round trip failed")
+
+    local tqr = { truncated = true, request_id = "rq", events = { { timeline_id_uuid7 = "e1", event_type = 1, raw_message = "hi", version = 2 } } }
+    local tqr_dec = decode_message("TimelineQueryResult", encode_message("TimelineQueryResult", tqr))
+    expect(tqr_dec.truncated == true and tqr_dec.request_id == "rq"
+        and #tqr_dec.events == 1 and tqr_dec.events[1].version == 2,
+        "TimelineQueryResult round trip failed")
+
+    local qr = { request_id = "rid", operation = 2, success = true, result = { result_blob = "\1\2" } }
+    local qr_dec = decode_message("QueryResponse", encode_message("QueryResponse", qr))
+    expect(qr_dec.request_id == "rid" and qr_dec.operation == 2 and qr_dec.success == true
+        and qr_dec.result and qr_dec.result.result_blob == "\1\2",
+        "QueryResponse round trip failed")
+
+    local udb = { success = true, message = "ok", user = { uuid7 = "u1", username = "bob", score = 5, channels = { { platform = "twitch", channel_id = "c", handle = "h" } } }, users = {}, values = { { key = "k", value = "v" } }, rating_history = {} }
+    local udb_dec = decode_message("UserDbResponse", encode_message("UserDbResponse", udb))
+    expect(udb_dec.success == true and udb_dec.user and udb_dec.user.username == "bob"
+        and udb_dec.user.score == 5 and #udb_dec.values == 1,
+        "UserDbResponse round trip failed")
+
+    local pred = { prediction_id = "pd", prompt = "?", side_left_total = 10, side_right_total = 20, pot = 30, status = 1, winner_side = "left" }
+    local pred_dec = decode_message("PredictionUpdate", encode_message("PredictionUpdate", pred))
+    expect(pred_dec.pot == 30 and pred_dec.winner_side == "left" and pred_dec.status == 1,
+        "PredictionUpdate round trip failed")
+
+    -- 12. V2 rename check: command (11, module->engine only) and commands (12,
+    --     both directions) use the renamed payload names on the wire.
+    local cmd_cont = { version = 2, auth_token = "", module_name = "lua-check", module_instance_uuid7 = "",
+        command = { command_name = "ping", command_flag = "!", command_flags = {} } }
+    local cmd_enc = encode_container(cmd_cont)
+    if not string.find(cmd_enc, string.char(0x5A), 1, true) then -- field 11 wire 2
+        expect(false, "command payload not on wire tag 11")
+    end
+    local cmds_cont = { version = 2, auth_token = "", module_name = "lua-check", module_instance_uuid7 = "",
+        commands = { commands = { { command_name = "ping", command_flag = "!" } } } }
+    local cmds_enc = encode_container(cmds_cont)
+    if not string.find(cmds_enc, string.char(0x62), 1, true) then -- field 12 wire 2
+        expect(false, "commands payload not on wire tag 12")
+    end
+    local cmds_dec = decode_container(cmds_enc)
+    expect(active_payload(cmds_dec) == "commands", "commands payload rename failed")
+
+    -- 13. Container-level decode of the new inbound-only payloads
+    local in_map = {
+        { "timelineQueryResult", 34, "TimelineQueryResult", { request_id = "rq" } },
+        { "queryResponse", 35, "QueryResponse", { request_id = "rid", operation = 3, success = true } },
+        { "userDbResponse", 36, "UserDbResponse", { success = true, message = "ok" } },
+        { "databaseQueryResult", 24, "DatabaseQueryResult", { query_id = "q1", success = true } },
+        { "predictionUpdate", 37, "PredictionUpdate", { prediction_id = "pd", status = 1 } },
+        { "pollUpdate", 38, "PollUpdate", { poll_id = "p1", status = 1 } },
+        { "channelStats", 39, "ChannelStats", { platform = "twitch", viewers = 7 } },
+    }
+    for _, item in ipairs(in_map) do
+        local parts = { "\8\2" } -- version=2
+        local body = encode_message(item[3], item[4])
+        encode_key(parts, item[2], 2)
+        encode_varint(parts, #body)
+        parts[#parts + 1] = body
+        local dec = decode_container(table.concat(parts))
+        expect(active_payload(dec) == item[1] and dec[item[1]] ~= nil,
+            "inbound payload " .. item[1] .. " not decoded from tag " .. item[2])
+    end
 
     return { ok = #failures == 0, failures = failures }
 end

@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -40,6 +41,13 @@ import java.util.function.Function;
  * WebSocket carries the whole session: a ConnectionRequest (PIN) is answered
  * by a ConnectionRequestReturn carrying a JWT, and every later frame reuses
  * that JWT on the same socket. See CLIENT_CONTRACT.md.
+ *
+ * <p>Wire migration (v1 -&gt; v2): the single {@code Container} is split by
+ * direction. Outbound frames are encoded as {@link Cockatiel.ContainerForEngine}
+ * (carrying {@code module_name}) at {@code version = 2}; inbound frames are
+ * decoded as {@link Cockatiel.ContainerForModule} (no {@code module_name}).
+ * Stage messages with a non-empty {@code message_uuid7} are receipt-acked
+ * immediately with a {@code MessageAck} before processing.
  */
 public static final class CockatielClient implements AutoCloseable {
 
@@ -49,12 +57,14 @@ public static final class CockatielClient implements AutoCloseable {
     private static final Object SENTINEL_CLOSE = new Object();
     private static final Object SENTINEL_ERROR = new Object();
 
-    /** Payload runtime type -> Container.Builder oneof setter. */
-    private static final Map<Class<?>, BiConsumer<Container.Builder, Object>>
+    /** Payload runtime type -> ContainerForEngine.Builder oneof setter. */
+    private static final Map<Class<?>, BiConsumer<ContainerForEngine.Builder, Object>>
             PAYLOAD_SETTERS = buildPayloadSetters();
-    /** Container oneof case -> payload getter. */
-    private static final Map<Container.PayloadCase, Function<Container, Object>>
+    /** ContainerForModule oneof case -> payload getter. */
+    private static final Map<ContainerForModule.PayloadCase, Function<ContainerForModule, Object>>
             PAYLOAD_GETTERS = buildPayloadGetters();
+    /** The set of payload types a module can receive on a ContainerForModule. */
+    private static final Set<Class<?>> INBOUND_PAYLOAD_TYPES = buildInboundPayloadTypes();
 
     /** KEY=VALUE from a module-local .env; real process env always wins. */
     private static final Map<String, String> DOTENV = new HashMap<>();
@@ -64,7 +74,7 @@ public static final class CockatielClient implements AutoCloseable {
     private final HttpClient http;
     private final ExecutorService sendExecutor;
 
-    private final List<Consumer<Container>> allHandlers =
+    private final List<Consumer<ContainerForModule>> allHandlers =
             new CopyOnWriteArrayList<>();
     private final Map<Class<?>, List<Consumer<Object>>> typedHandlers = new ConcurrentHashMap<>();
 
@@ -126,8 +136,8 @@ public static final class CockatielClient implements AutoCloseable {
                     .buildAsync(URI.create(buildUrl(opts)), new FrameListener(queue))
                     .get(CONNECT_TIMEOUT_S, TimeUnit.SECONDS);
 
-            Container handshake = Container.newBuilder()
-                    .setVersion(1)
+            ContainerForEngine handshake = ContainerForEngine.newBuilder()
+                    .setVersion(2)
                     .setAuthToken("")
                     .setModuleName(moduleName)
                     .setModuleInstanceUuid7(requestedUuid)
@@ -145,11 +155,11 @@ public static final class CockatielClient implements AutoCloseable {
                 throw new IllegalStateException(
                         "Engine closed the socket before replying to the ConnectionRequest.");
             }
-            Container reply =
-                    Container.parseFrom((byte[]) item);
+            ContainerForModule reply =
+                    ContainerForModule.parseFrom((byte[]) item);
 
             if (reply.getPayloadCase()
-                    != Container.PayloadCase.CONNECTION_REQUEST_RETURN) {
+                    != ContainerForModule.PayloadCase.CONNECTION_REQUEST_RETURN) {
                 throw new IllegalStateException("Authentication rejected by engine "
                         + "(expected connection_request_return, got " + reply.getPayloadCase() + ").");
             }
@@ -188,8 +198,8 @@ public static final class CockatielClient implements AutoCloseable {
     }
 
     /**
-     * Send any Container payload. The payload's runtime type is mapped
-     * automatically to the Container payload oneof field; unknown types throw.
+     * Send any ContainerForEngine payload. The payload's runtime type is mapped
+     * automatically to the container payload oneof field; unknown types throw.
      */
     public CompletableFuture<Void> sendAsync(Object payload) {
         if (disposed) {
@@ -198,15 +208,15 @@ public static final class CockatielClient implements AutoCloseable {
         if (payload == null) {
             return failedFuture(new IllegalArgumentException("payload must not be null"));
         }
-        BiConsumer<Container.Builder, Object> setter =
+        BiConsumer<ContainerForEngine.Builder, Object> setter =
                 PAYLOAD_SETTERS.get(payload.getClass());
         if (setter == null) {
             return failedFuture(new IllegalArgumentException(
-                    payload.getClass().getName() + " is not a valid Container payload type."));
+                    payload.getClass().getName() + " is not a valid ContainerForEngine payload type."));
         }
         return CompletableFuture.runAsync(() -> {
             try {
-                Container.Builder builder = buildContainerBuilder();
+                ContainerForEngine.Builder builder = buildContainerBuilder();
                 setter.accept(builder, payload);
                 send(builder.build());
             } catch (Exception e) {
@@ -216,29 +226,29 @@ public static final class CockatielClient implements AutoCloseable {
     }
 
     /** Register a handler for every inbound container. */
-    public void onMessage(Consumer<Container> handler) {
+    public void onMessage(Consumer<ContainerForModule> handler) {
         if (handler == null) {
             throw new IllegalArgumentException("handler must not be null");
         }
         allHandlers.add(handler);
     }
 
-    /** Register a typed handler for a specific payload type. */
+    /** Register a typed handler for a specific inbound payload type. */
     public <T> void on(Class<T> type, Consumer<T> handler) {
         if (handler == null) {
             throw new IllegalArgumentException("handler must not be null");
         }
-        if (!PAYLOAD_SETTERS.containsKey(type)) {
+        if (!INBOUND_PAYLOAD_TYPES.contains(type)) {
             throw new IllegalArgumentException(
-                    type.getName() + " is not a valid Container payload type.");
+                    type.getName() + " is not a valid ContainerForModule payload type.");
         }
         typedHandlers.computeIfAbsent(type, k -> new CopyOnWriteArrayList<>())
                 .add(payload -> handler.accept((T) payload));
     }
 
     /**
-     * Drop the socket, open a fresh one, and send a Container carrying the
-     * stored JWT (contract §6). The engine recognizes the valid token as a
+     * Drop the socket, open a fresh one, and send a ContainerForEngine carrying
+     * the stored JWT (contract §6). The engine recognizes the valid token as a
      * reauth — no PIN needed. The first message on the fresh socket must be a
      * ConnectionRequest, whose container carries the JWT as auth_token.
      */
@@ -258,7 +268,7 @@ public static final class CockatielClient implements AutoCloseable {
                         .buildAsync(URI.create(buildUrl(opts)), new FrameListener(newQueue))
                         .get(CONNECT_TIMEOUT_S, TimeUnit.SECONDS);
 
-                Container reauth = buildContainerBuilder()
+                ContainerForEngine reauth = buildContainerBuilder()
                         .setConnectionRequest(ConnectionRequest.newBuilder()
                                 .setPin(0) // ignored on reauth
                                 .setProcessPosition(opts.processPosition)
@@ -399,15 +409,15 @@ public static final class CockatielClient implements AutoCloseable {
         }
     }
 
-    private Container.Builder buildContainerBuilder() {
-        return Container.newBuilder()
-                .setVersion(1)
+    private ContainerForEngine.Builder buildContainerBuilder() {
+        return ContainerForEngine.newBuilder()
+                .setVersion(2)
                 .setAuthToken(authToken)
                 .setModuleName(opts.moduleName == null ? "" : opts.moduleName)
                 .setModuleInstanceUuid7(instanceUuid7);
     }
 
-    private void send(Container container) throws Exception {
+    private void send(ContainerForEngine container) throws Exception {
         WebSocket s = ws;
         if (s == null) {
             throw new IllegalStateException("not connected");
@@ -419,9 +429,31 @@ public static final class CockatielClient implements AutoCloseable {
     private void answerAuthVerify() {
         CompletableFuture.runAsync(() -> {
             try {
-                Container.Builder builder = buildContainerBuilder();
+                ContainerForEngine.Builder builder = buildContainerBuilder();
                 builder.setAuthVerify(AuthVerify.newBuilder()
                         .setCurAuth(authToken));
+                send(builder.build());
+            } catch (Exception ignored) {
+                // the socket may be going away; nothing to do
+            }
+        }, sendExecutor);
+    }
+
+    /**
+     * Receipt-ack (contract §7): a stage message with a non-empty
+     * {@code message_uuid7} must be acked to the engine immediately, BEFORE
+     * processing. The ack is queued on the single-threaded send executor ahead
+     * of any later stage-echo, so it always lands first.
+     */
+    private void sendMessageAck(String messageUuid7) {
+        if (messageUuid7 == null || messageUuid7.isEmpty()) {
+            return;
+        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                ContainerForEngine.Builder builder = buildContainerBuilder();
+                builder.setMessageAck(MessageAck.newBuilder()
+                        .setMessageUuid7(messageUuid7));
                 send(builder.build());
             } catch (Exception ignored) {
                 // the socket may be going away; nothing to do
@@ -449,29 +481,49 @@ public static final class CockatielClient implements AutoCloseable {
             if (item == SENTINEL_CLOSE || item == SENTINEL_ERROR) {
                 break;
             }
-            Container container;
+            ContainerForModule container;
             try {
-                container = Container.parseFrom((byte[]) item);
+                container = ContainerForModule.parseFrom((byte[]) item);
             } catch (com.google.protobuf.InvalidProtocolBufferException e) {
                 continue; // malformed frames are ignored, never crash the loop
             }
 
             if (container.getPayloadCase()
-                    == Container.PayloadCase.AUTH_VERIFY) {
+                    == ContainerForModule.PayloadCase.AUTH_VERIFY) {
                 // Answer the engine's liveness probe immediately on the same
                 // socket so a quiet module is never severed as "unresponsive".
                 answerAuthVerify();
                 continue; // probes are control messages, not user-facing payloads
             }
+
+            // Receipt-ack: a stage message with a non-empty message_uuid7 is
+            // acked to the engine BEFORE any user handler runs.
+            String stageUuid = null;
+            switch (container.getPayloadCase()) {
+                case MESSAGE_PRE_PROCESS:
+                    stageUuid = container.getMessagePreProcess().getMessageUuid7();
+                    break;
+                case MESSAGE_IN_PROCESS:
+                    stageUuid = container.getMessageInProcess().getMessageUuid7();
+                    break;
+                case MESSAGE_POST_PROCESS:
+                    stageUuid = container.getMessagePostProcess().getMessageUuid7();
+                    break;
+                default:
+                    break;
+            }
+            if (stageUuid != null && !stageUuid.isEmpty()) {
+                sendMessageAck(stageUuid);
+            }
             dispatch(container);
         }
     }
 
-    private void dispatch(Container container) {
+    private void dispatch(ContainerForModule container) {
         // Slow handlers must never block the receive loop (which has to answer
         // liveness probes in time) — dispatch every handler as a background task.
-        for (Consumer<Container> handler : allHandlers) {
-            Consumer<Container> h = handler;
+        for (Consumer<ContainerForModule> handler : allHandlers) {
+            Consumer<ContainerForModule> h = handler;
             CompletableFuture.runAsync(() -> {
                 try {
                     h.accept(container);
@@ -481,10 +533,10 @@ public static final class CockatielClient implements AutoCloseable {
             });
         }
 
-        if (container.getPayloadCase() == Container.PayloadCase.PAYLOAD_NOT_SET) {
+        if (container.getPayloadCase() == ContainerForModule.PayloadCase.PAYLOAD_NOT_SET) {
             return;
         }
-        Function<Container, Object> getter = PAYLOAD_GETTERS.get(container.getPayloadCase());
+        Function<ContainerForModule, Object> getter = PAYLOAD_GETTERS.get(container.getPayloadCase());
         if (getter == null) {
             return;
         }
@@ -570,15 +622,15 @@ public static final class CockatielClient implements AutoCloseable {
         }
     }
 
-    private static Map<Class<?>, BiConsumer<Container.Builder, Object>>
+    private static Map<Class<?>, BiConsumer<ContainerForEngine.Builder, Object>>
             buildPayloadSetters() {
-        Map<Class<?>, BiConsumer<Container.Builder, Object>> map = new HashMap<>();
-        for (Container.PayloadCase c : Container.PayloadCase.values()) {
-            if (c == Container.PayloadCase.PAYLOAD_NOT_SET) {
+        Map<Class<?>, BiConsumer<ContainerForEngine.Builder, Object>> map = new HashMap<>();
+        for (ContainerForEngine.PayloadCase c : ContainerForEngine.PayloadCase.values()) {
+            if (c == ContainerForEngine.PayloadCase.PAYLOAD_NOT_SET) {
                 continue;
             }
             String methodName = "set" + camelCase(c.name());
-            for (Method m : Container.Builder.class.getMethods()) {
+            for (Method m : ContainerForEngine.Builder.class.getMethods()) {
                 if (!m.getName().equals(methodName)) {
                     continue;
                 }
@@ -602,17 +654,17 @@ public static final class CockatielClient implements AutoCloseable {
         return map;
     }
 
-    private static Map<Container.PayloadCase, Function<Container, Object>>
+    private static Map<ContainerForModule.PayloadCase, Function<ContainerForModule, Object>>
             buildPayloadGetters() {
-        Map<Container.PayloadCase, Function<Container, Object>> map =
+        Map<ContainerForModule.PayloadCase, Function<ContainerForModule, Object>> map =
                 new HashMap<>();
-        for (Container.PayloadCase c : Container.PayloadCase.values()) {
-            if (c == Container.PayloadCase.PAYLOAD_NOT_SET) {
+        for (ContainerForModule.PayloadCase c : ContainerForModule.PayloadCase.values()) {
+            if (c == ContainerForModule.PayloadCase.PAYLOAD_NOT_SET) {
                 continue;
             }
             String methodName = "get" + camelCase(c.name());
             try {
-                Method m = Container.class.getMethod(methodName);
+                Method m = ContainerForModule.class.getMethod(methodName);
                 map.put(c, (ct) -> {
                     try {
                         return m.invoke(ct);
@@ -625,6 +677,22 @@ public static final class CockatielClient implements AutoCloseable {
             }
         }
         return map;
+    }
+
+    private static Set<Class<?>> buildInboundPayloadTypes() {
+        Set<Class<?>> types = new java.util.HashSet<>();
+        for (ContainerForModule.PayloadCase c : ContainerForModule.PayloadCase.values()) {
+            if (c == ContainerForModule.PayloadCase.PAYLOAD_NOT_SET) {
+                continue;
+            }
+            try {
+                Method m = ContainerForModule.class.getMethod("get" + camelCase(c.name()));
+                types.add(m.getReturnType());
+            } catch (NoSuchMethodException e) {
+                throw new ExceptionInInitializerError(e);
+            }
+        }
+        return types;
     }
 
     private static String camelCase(String upperSnake) {

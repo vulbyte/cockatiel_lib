@@ -1,15 +1,20 @@
 # Cockatiel GDScript client
 
 A one-file Godot 4.7+ client for the Cockatiel chat engine. It ships its own
-hand-written **protobuf wire codec** (proto3, package
-`cockatiel_protobuf.v1`) — Godot has no protobuf library — plus a
-`WebSocketPeer` transport implementing the full `CLIENT_CONTRACT.md` wire spec:
+hand-written **protobuf wire codec** (proto3, package `cockatiel_protobuf`) —
+Godot has no protobuf library — plus a `WebSocketPeer` transport implementing
+the full `CLIENT_CONTRACT.md` wire spec:
 
 - single-connection PIN → JWT auth (no two-phase / port hop)
-- decode of the **entire 23-field `Container` payload oneof**
-- encode of every payload (connection_request, auth_verify, log, message_ack,
-  message_pre_process, prompt_response, send_to_platforms, …)
+- outbound frames encode **`ContainerForEngine`** (module → engine, `module_name`
+  set); inbound frames decode **`ContainerForModule`** (engine → module, no
+  `module_name`) with the full engine payload oneof
+- encode of every module payload (connection_request, auth_verify, log,
+  message_ack, command/commands, message_pre_process, prompt_response,
+  send_to_platforms, …)
 - automatic `AuthVerify` liveness answers inside the receive loop
+- automatic `messageAck` receipt ping for stage messages with a non-empty
+  `message_uuid7`, sent immediately on receipt (before user handlers run)
 - `reconnect()` on a fresh socket carrying the stored JWT
 - PIN precedence: `COCKATIEL_PIN` env → `opts.pin`
 - TLS: when `COCKATIEL_TLS_CERT` is set (and non-empty), the URL is upgraded

@@ -3,104 +3,154 @@
 # Gives fixed-size buffers (instead of pb_callback_t) for the strings and
 # repeated fields the C client actually reads/writes. Sizes are generous.
 
-# ---- Container envelope (what the client always handles) ----
-cockatiel_protobuf.v1.Container.auth_token                  max_size:512
-cockatiel_protobuf.v1.Container.module_name                 max_size:128
-cockatiel_protobuf.v1.Container.module_instance_uuid7       max_size:64
+# ---- Container envelopes (the module encodes ContainerForEngine, decodes
+#      ContainerForModule; only the engine-side container carries module_name) ----
+cockatiel_protobuf.ContainerForEngine.auth_token               max_size:512
+cockatiel_protobuf.ContainerForEngine.module_name              max_size:128
+cockatiel_protobuf.ContainerForEngine.module_instance_uuid7    max_size:64
+cockatiel_protobuf.ContainerForModule.auth_token               max_size:512
+cockatiel_protobuf.ContainerForModule.module_instance_uuid7    max_size:64
 
 # ---- Connection / auth ----
-cockatiel_protobuf.v1.ConnectionRequest.module_instance_uuid7   max_size:64
-cockatiel_protobuf.v1.ConnectionRequestReturn.module_instance_uuid7 max_size:64
-cockatiel_protobuf.v1.AuthNew.new_auth                        max_size:512
-cockatiel_protobuf.v1.AuthVerify.cur_auth                     max_size:512
+cockatiel_protobuf.ConnectionRequest.module_instance_uuid7   max_size:64
+cockatiel_protobuf.ConnectionRequestReturn.module_instance_uuid7 max_size:64
+cockatiel_protobuf.AuthNew.new_auth                        max_size:512
+cockatiel_protobuf.AuthVerify.cur_auth                     max_size:512
 
 # ---- Log / Err / Shutdown ----
-cockatiel_protobuf.v1.Log.log                                max_size:4096
-cockatiel_protobuf.v1.Log.blob                               max_size:4096
-cockatiel_protobuf.v1.Err.log                                max_size:4096
-cockatiel_protobuf.v1.Err.blob                               max_size:4096
-cockatiel_protobuf.v1.Err.trace                              max_size:4096
-cockatiel_protobuf.v1.Shutdown.reason                        max_size:512
+cockatiel_protobuf.Log.log                                max_size:4096
+cockatiel_protobuf.Log.blob                               max_size:4096
+cockatiel_protobuf.Err.log                                max_size:4096
+cockatiel_protobuf.Err.blob                               max_size:4096
+cockatiel_protobuf.Err.trace                              max_size:4096
+cockatiel_protobuf.Shutdown.reason                        max_size:512
 
 # ---- SendToPlatforms ----
-cockatiel_protobuf.v1.SendToPlatforms.msg                   max_size:4096
-cockatiel_protobuf.v1.SendToPlatforms.module_uuid7          max_size:64
-cockatiel_protobuf.v1.SendToPlatforms.pid                   max_size:128
-cockatiel_protobuf.v1.SendToPlatforms.platform              max_size:64
-cockatiel_protobuf.v1.SendToPlatforms.actor_platform        max_size:64
-cockatiel_protobuf.v1.SendToPlatforms.actor_handle          max_size:128
-cockatiel_protobuf.v1.SendToPlatforms.actor_uuid7           max_size:64
+cockatiel_protobuf.SendToPlatforms.msg                   max_size:4096
+cockatiel_protobuf.SendToPlatforms.module_uuid7          max_size:64
+cockatiel_protobuf.SendToPlatforms.pid                   max_size:128
+cockatiel_protobuf.SendToPlatforms.platform              max_size:64
+cockatiel_protobuf.SendToPlatforms.actor_platform        max_size:64
+cockatiel_protobuf.SendToPlatforms.actor_handle          max_size:128
+cockatiel_protobuf.SendToPlatforms.actor_uuid7           max_size:64
 
 # ---- Pipeline acks / database ----
-cockatiel_protobuf.v1.MessageAck.message_uuid7              max_size:64
-cockatiel_protobuf.v1.DatabaseQuery.query_id                max_size:64
-cockatiel_protobuf.v1.DatabaseQuery.sql                     max_size:8192
-cockatiel_protobuf.v1.DatabaseQuery.params                  max_count:16
-cockatiel_protobuf.v1.DatabaseQuery.params                  max_size:2048
-cockatiel_protobuf.v1.DatabaseQueryResult.query_id          max_size:64
-cockatiel_protobuf.v1.DatabaseQueryResult.error             max_size:4096
-cockatiel_protobuf.v1.DatabaseQueryResult.result_blob       max_size:16384
+cockatiel_protobuf.MessageAck.message_uuid7              max_size:64
+cockatiel_protobuf.DatabaseQuery.query_id                max_size:64
+cockatiel_protobuf.DatabaseQuery.sql                     max_size:8192
+cockatiel_protobuf.DatabaseQuery.params                  max_count:16
+cockatiel_protobuf.DatabaseQuery.params                  max_size:2048
+cockatiel_protobuf.DatabaseQueryResult.query_id          max_size:64
+cockatiel_protobuf.DatabaseQueryResult.error             max_size:4096
+cockatiel_protobuf.DatabaseQueryResult.result_blob       max_size:16384
 
 # ---- Module control ----
-cockatiel_protobuf.v1.ModuleControl.module_name             max_size:128
-cockatiel_protobuf.v1.ModuleControlResult.error             max_size:4096
-cockatiel_protobuf.v1.ModuleControlResult.message           max_size:4096
+cockatiel_protobuf.ModuleControl.module_name             max_size:128
+cockatiel_protobuf.ModuleControlResult.error             max_size:4096
+cockatiel_protobuf.ModuleControlResult.message           max_size:4096
 
 # ---- Prompts ----
-cockatiel_protobuf.v1.Prompt.prompt_id_uuid7                max_size:64
-cockatiel_protobuf.v1.Prompt.prompt                         max_size:1024
-cockatiel_protobuf.v1.Prompt.details                        max_size:2048
-cockatiel_protobuf.v1.Prompt.yes_dialog                     max_size:128
-cockatiel_protobuf.v1.Prompt.no_dialog                      max_size:128
-cockatiel_protobuf.v1.Prompt.origin                         max_size:128
-cockatiel_protobuf.v1.Prompt.origin_uuid7                   max_size:64
-cockatiel_protobuf.v1.Prompt.instructions                   max_size:2048
-cockatiel_protobuf.v1.Prompt.link                           max_size:2048
-cockatiel_protobuf.v1.Prompt.input_label                    max_size:128
-cockatiel_protobuf.v1.PromptResponse.prompt_id_uuid7        max_size:64
-cockatiel_protobuf.v1.PromptResponse.reason                 max_size:4096
+cockatiel_protobuf.Prompt.prompt_id_uuid7                max_size:64
+cockatiel_protobuf.Prompt.prompt                         max_size:1024
+cockatiel_protobuf.Prompt.details                        max_size:2048
+cockatiel_protobuf.Prompt.yes_dialog                     max_size:128
+cockatiel_protobuf.Prompt.no_dialog                      max_size:128
+cockatiel_protobuf.Prompt.origin                         max_size:128
+cockatiel_protobuf.Prompt.origin_uuid7                   max_size:64
+cockatiel_protobuf.Prompt.instructions                   max_size:2048
+cockatiel_protobuf.Prompt.link                           max_size:2048
+cockatiel_protobuf.Prompt.input_label                    max_size:128
+cockatiel_protobuf.PromptResponse.prompt_id_uuid7        max_size:64
+cockatiel_protobuf.PromptResponse.reason                 max_size:4096
 
 # ---- Audit flag ----
-cockatiel_protobuf.v1.AuditFlag.message_uuid7               max_size:64
-cockatiel_protobuf.v1.AuditFlag.reason                      max_size:4096
-cockatiel_protobuf.v1.AuditFlag.origin                      max_size:128
+cockatiel_protobuf.AuditFlag.message_uuid7               max_size:64
+cockatiel_protobuf.AuditFlag.reason                      max_size:4096
+cockatiel_protobuf.AuditFlag.origin                      max_size:128
 
 # ---- Commands ----
-cockatiel_protobuf.v1.Command.command_name                  max_size:128
-cockatiel_protobuf.v1.Command.command_flag                  max_size:128
-cockatiel_protobuf.v1.Command.command_description           max_size:2048
-cockatiel_protobuf.v1.Command.command_flags                 max_count:2
-cockatiel_protobuf.v1.Commands.commands                     max_count:4
-cockatiel_protobuf.v1.Flag.flag_name                        max_size:128
-cockatiel_protobuf.v1.Flag.flag_description                 max_size:2048
-cockatiel_protobuf.v1.Flag.options                          max_count:4
-cockatiel_protobuf.v1.Flag.options                          max_size:64
+cockatiel_protobuf.Command.command_name                  max_size:128
+cockatiel_protobuf.Command.command_flag                  max_size:128
+cockatiel_protobuf.Command.command_description           max_size:2048
+cockatiel_protobuf.Command.command_flags                 max_count:2
+cockatiel_protobuf.Commands.commands                     max_count:4
+cockatiel_protobuf.Flag.flag_name                        max_size:128
+cockatiel_protobuf.Flag.flag_description                 max_size:2048
+cockatiel_protobuf.Flag.options                          max_count:4
+cockatiel_protobuf.Flag.options                          max_size:64
 
 # ---- Timeline ----
-cockatiel_protobuf.v1.TimelineEvent.timeline_id_uuid7       max_size:64
-cockatiel_protobuf.v1.TimelineEvent.command_flag            max_size:128
-cockatiel_protobuf.v1.TimelineEvent.data_blob               max_size:16384
-cockatiel_protobuf.v1.TimelineEvent.error_message           max_size:4096
-cockatiel_protobuf.v1.TimelineEvent.raw_flags               max_size:2048
-cockatiel_protobuf.v1.TimelineEvent.message_origin          max_size:128
-cockatiel_protobuf.v1.TimelineEvent.stream_origin           max_size:128
-cockatiel_protobuf.v1.TimelineEvent.raw_message             max_size:4096
-cockatiel_protobuf.v1.TimelineEvent.processed_message       max_size:4096
-cockatiel_protobuf.v1.TimelineEvent.user_uuid7              max_size:64
+cockatiel_protobuf.TimelineEvent.timeline_id_uuid7       max_size:64
+cockatiel_protobuf.TimelineEvent.command_flag            max_size:128
+cockatiel_protobuf.TimelineEvent.data_blob               max_size:16384
+cockatiel_protobuf.TimelineEvent.error_message           max_size:4096
+cockatiel_protobuf.TimelineEvent.raw_flags               max_size:2048
+cockatiel_protobuf.TimelineEvent.message_origin          max_size:128
+cockatiel_protobuf.TimelineEvent.stream_origin           max_size:128
+cockatiel_protobuf.TimelineEvent.raw_message             max_size:4096
+cockatiel_protobuf.TimelineEvent.processed_message       max_size:4096
+cockatiel_protobuf.TimelineEvent.user_uuid7              max_size:64
+cockatiel_protobuf.TimelineEvent.pipeline_status         max_size:64
+
+# ---- TimelineQueryResult (new typed read surface) ----
+cockatiel_protobuf.TimelineQueryResult.events            max_count:4
+cockatiel_protobuf.TimelineQueryResult.request_id        max_size:64
+
+# ---- UserDbResponse (user-database reply) ----
+cockatiel_protobuf.UserDbResponse.error                  max_size:4096
+cockatiel_protobuf.UserDbResponse.message                max_size:4096
+cockatiel_protobuf.UserDbResponse.users                  max_count:8
+cockatiel_protobuf.UserDbResponse.values                 max_count:8
+cockatiel_protobuf.UserDbResponse.rating_history         max_count:8
+cockatiel_protobuf.User.uuid7                            max_size:64
+cockatiel_protobuf.User.username                         max_size:128
+cockatiel_protobuf.User.flags                            max_size:4096
+cockatiel_protobuf.User.channels                         max_count:4
+cockatiel_protobuf.ChannelRef.platform                   max_size:64
+cockatiel_protobuf.ChannelRef.channel_id                 max_size:128
+cockatiel_protobuf.ChannelRef.handle                     max_size:128
+cockatiel_protobuf.UserValueResult.key                   max_size:128
+cockatiel_protobuf.UserValueResult.value                 max_size:4096
+cockatiel_protobuf.RatingHistoryEntry.uuid7              max_size:64
+cockatiel_protobuf.RatingHistoryEntry.giver_uuid7        max_size:64
+cockatiel_protobuf.RatingHistoryEntry.kind               max_size:64
+cockatiel_protobuf.RatingHistoryEntry.platform           max_size:64
+cockatiel_protobuf.RatingHistoryEntry.handle             max_size:128
+cockatiel_protobuf.RatingHistoryEntry.reason             max_size:4096
+
+# ---- QueryRequest / QueryResponse (typed query surface) ----
+cockatiel_protobuf.QueryResponse.request_id              max_size:64
+cockatiel_protobuf.QueryResponse.error                   max_size:4096
+cockatiel_protobuf.QueryResult.result_blob               max_size:16384
+
+# ---- Event projections (prediction / poll / channel stats) ----
+cockatiel_protobuf.PredictionUpdate.prediction_id        max_size:64
+cockatiel_protobuf.PredictionUpdate.prompt               max_size:1024
+cockatiel_protobuf.PredictionUpdate.side_left_label      max_size:128
+cockatiel_protobuf.PredictionUpdate.side_right_label     max_size:128
+cockatiel_protobuf.PredictionUpdate.winner_side          max_size:64
+cockatiel_protobuf.PollUpdate.poll_id                    max_size:64
+cockatiel_protobuf.PollUpdate.prompt                     max_size:1024
+cockatiel_protobuf.PollUpdate.options                    max_count:6
+cockatiel_protobuf.PollUpdate.options                    max_size:256
+cockatiel_protobuf.PollUpdate.vote_counts                max_count:6
+cockatiel_protobuf.ChannelStats.platform                 max_size:64
+cockatiel_protobuf.ChannelStats.channel                  max_size:128
+cockatiel_protobuf.ChannelStats.title                    max_size:512
 
 # ---- Chat / user data (message pipeline) ----
-cockatiel_protobuf.v1.ChatMessage.platform                  max_size:64
-cockatiel_protobuf.v1.ChatMessage.raw_data                  max_size:4096
-cockatiel_protobuf.v1.ChatMessage.raw_message               max_size:4096
-cockatiel_protobuf.v1.ChatMessage.user_uuid7                max_size:64
-cockatiel_protobuf.v1.MessagePreProcess.message_uuid7       max_size:64
-cockatiel_protobuf.v1.MessagePreProcess.audio               max_size:16384
-cockatiel_protobuf.v1.MessagePreProcess.audio_type          max_size:64
-cockatiel_protobuf.v1.MessageInProcess.message_uuid7        max_size:64
-cockatiel_protobuf.v1.MessageInProcess.processed_message    max_size:4096
-cockatiel_protobuf.v1.MessageInProcess.audio                max_size:16384
-cockatiel_protobuf.v1.MessageInProcess.audio_type           max_size:64
-cockatiel_protobuf.v1.MessagePostProcess.message_uuid7      max_size:64
-cockatiel_protobuf.v1.MessagePostProcess.processed_message  max_size:4096
-cockatiel_protobuf.v1.MessagePostProcess.audio              max_size:16384
-cockatiel_protobuf.v1.MessagePostProcess.audio_type         max_size:64
+cockatiel_protobuf.ChatMessage.platform                  max_size:64
+cockatiel_protobuf.ChatMessage.raw_data                  max_size:4096
+cockatiel_protobuf.ChatMessage.raw_message               max_size:4096
+cockatiel_protobuf.ChatMessage.user_uuid7                max_size:64
+cockatiel_protobuf.MessagePreProcess.message_uuid7       max_size:64
+cockatiel_protobuf.MessagePreProcess.audio               max_size:16384
+cockatiel_protobuf.MessagePreProcess.audio_type          max_size:64
+cockatiel_protobuf.MessageInProcess.message_uuid7        max_size:64
+cockatiel_protobuf.MessageInProcess.processed_message    max_size:4096
+cockatiel_protobuf.MessageInProcess.audio                max_size:16384
+cockatiel_protobuf.MessageInProcess.audio_type           max_size:64
+cockatiel_protobuf.MessagePostProcess.message_uuid7      max_size:64
+cockatiel_protobuf.MessagePostProcess.processed_message  max_size:4096
+cockatiel_protobuf.MessagePostProcess.audio              max_size:16384
+cockatiel_protobuf.MessagePostProcess.audio_type         max_size:64

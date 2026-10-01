@@ -95,7 +95,7 @@ typedef struct {
 } payload_entry;
 
 #define P(tag_, type_) \
-    { (tag_), sizeof(cockatiel_protobuf_v1_##type_), &cockatiel_protobuf_v1_##type_##_msg }
+    { (tag_), sizeof(cockatiel_protobuf_##type_), &cockatiel_protobuf_##type_##_msg }
 
 static const payload_entry PAYLOAD_TABLE[] = {
     P(COCKATIEL_PAYLOAD_CONNECTION_REQUEST, ConnectionRequest),
@@ -134,7 +134,7 @@ const char *cockatiel_payload_name(uint32_t tag) {
     static const char *names[] = {
         "connection_request",       "connection_request_return",
         "auth_verify",              "auth_new",
-        "command_payload",          "commands_payload",
+        "command",                  "commands",
         "message_pre_process",      "message_in_process",
         "message_post_process",     "timeline_event",
         "user_data",                "shutdown",
@@ -144,6 +144,9 @@ const char *cockatiel_payload_name(uint32_t tag) {
         "module_control",           "module_control_result",
         "prompt",                   "prompt_response",
         "audit_flag",
+        "timeline_query_result",    "query_response",
+        "user_db_response",         "prediction_update",
+        "poll_update",              "channel_stats",
     };
     static const uint32_t tags[] = {
         COCKATIEL_PAYLOAD_CONNECTION_REQUEST,
@@ -169,6 +172,12 @@ const char *cockatiel_payload_name(uint32_t tag) {
         COCKATIEL_PAYLOAD_PROMPT,
         COCKATIEL_PAYLOAD_PROMPT_RESPONSE,
         COCKATIEL_PAYLOAD_AUDIT_FLAG,
+        COCKATIEL_PAYLOAD_TIMELINE_QUERY_RESULT,
+        COCKATIEL_PAYLOAD_QUERY_RESPONSE,
+        COCKATIEL_PAYLOAD_USER_DB_RESPONSE,
+        COCKATIEL_PAYLOAD_PREDICTION_UPDATE,
+        COCKATIEL_PAYLOAD_POLL_UPDATE,
+        COCKATIEL_PAYLOAD_CHANNEL_STATS,
     };
     for (size_t i = 0; i < sizeof(tags) / sizeof(tags[0]); i++) {
         if (tags[i] == tag) return names[i];
@@ -268,10 +277,10 @@ void cockatiel_uuid7(char out[37]) {
 /* Frame encode/decode                                                 */
 /* ------------------------------------------------------------------ */
 
-static int encode_container(const cockatiel_protobuf_v1_Container *c,
+static int encode_container(const cockatiel_protobuf_ContainerForEngine *c,
                             uint8_t *buf, size_t cap, size_t *out_len) {
     pb_ostream_t stream = pb_ostream_from_buffer(buf, cap);
-    if (!pb_encode(&stream, &cockatiel_protobuf_v1_Container_msg, c)) {
+    if (!pb_encode(&stream, &cockatiel_protobuf_ContainerForEngine_msg, c)) {
         return -1;
     }
     *out_len = stream.bytes_written;
@@ -279,18 +288,18 @@ static int encode_container(const cockatiel_protobuf_v1_Container *c,
 }
 
 static int decode_container(const uint8_t *buf, size_t len,
-                            cockatiel_protobuf_v1_Container *out) {
+                            cockatiel_protobuf_ContainerForModule *out) {
     pb_istream_t stream = pb_istream_from_buffer(buf, len);
-    if (!pb_decode(&stream, &cockatiel_protobuf_v1_Container_msg, out)) {
+    if (!pb_decode(&stream, &cockatiel_protobuf_ContainerForModule_msg, out)) {
         return -1;
     }
     return 0;
 }
 
 /* Build the envelope used by every outbound container. */
-static void fill_envelope(cockatiel_client *c, cockatiel_protobuf_v1_Container *out) {
+static void fill_envelope(cockatiel_client *c, cockatiel_protobuf_ContainerForEngine *out) {
     memset(out, 0, sizeof(*out));
-    out->version = 1;
+    out->version = 2;
     snprintf(out->auth_token, sizeof(out->auth_token), "%s", c->auth_token);
     snprintf(out->module_name, sizeof(out->module_name), "%s", c->module_name);
     snprintf(out->module_instance_uuid7, sizeof(out->module_instance_uuid7), "%s",
@@ -341,7 +350,7 @@ static void tx_queue_flush(cockatiel_client *c) {
     }
 }
 
-static int send_frame(cockatiel_client *c, cockatiel_protobuf_v1_Container *container) {
+static int send_frame(cockatiel_client *c, cockatiel_protobuf_ContainerForEngine *container) {
     uint8_t buf[COCKATIEL_MAX_FRAME];
     size_t len = 0;
     if (encode_container(container, buf, sizeof(buf), &len) != 0) return -1;
@@ -356,11 +365,23 @@ static int send_frame(cockatiel_client *c, cockatiel_protobuf_v1_Container *cont
 
 static int answer_auth_verify(cockatiel_client *c) {
     if (!c->authed) return 0; /* nothing to prove yet */
-    cockatiel_protobuf_v1_Container container;
+    cockatiel_protobuf_ContainerForEngine container;
     fill_envelope(c, &container);
     container.which_payload = COCKATIEL_PAYLOAD_AUTH_VERIFY;
     snprintf(container.payload.auth_verify.cur_auth,
              sizeof(container.payload.auth_verify.cur_auth), "%s", c->auth_token);
+    return send_frame(c, &container);
+}
+
+/* Receipt-ack: the moment a stage message arrives with a non-empty
+ * message_uuid7, ping the engine back with message_ack BEFORE processing. */
+static int send_message_ack(cockatiel_client *c, const char *message_uuid7) {
+    if (!message_uuid7 || !message_uuid7[0]) return 0;
+    cockatiel_protobuf_ContainerForEngine container;
+    fill_envelope(c, &container);
+    container.which_payload = COCKATIEL_PAYLOAD_MESSAGE_ACK;
+    snprintf(container.payload.message_ack.message_uuid7,
+             sizeof(container.payload.message_ack.message_uuid7), "%s", message_uuid7);
     return send_frame(c, &container);
 }
 
@@ -369,12 +390,12 @@ static int answer_auth_verify(cockatiel_client *c) {
 /* ------------------------------------------------------------------ */
 
 static int send_connection_request(cockatiel_client *c) {
-    cockatiel_protobuf_v1_Container container;
+    cockatiel_protobuf_ContainerForEngine container;
     fill_envelope(c, &container);
     container.which_payload = COCKATIEL_PAYLOAD_CONNECTION_REQUEST;
     container.payload.connection_request.pin = c->pin;
     container.payload.connection_request.process_position =
-        (cockatiel_protobuf_v1_ProcessPosition)c->process_position;
+        (cockatiel_protobuf_ProcessPosition)c->process_position;
     container.payload.connection_request.priority = c->priority;
     /* module_instance_uuid7 empty on first connect; engine assigns */
     return send_frame(c, &container);
@@ -384,12 +405,12 @@ static int send_connection_request(cockatiel_client *c) {
  * requires the first message on a fresh connection to be a ConnectionRequest;
  * a non-empty auth_token marks it as a reauth and skips the PIN check. */
 static int send_reauth(cockatiel_client *c) {
-    cockatiel_protobuf_v1_Container container;
+    cockatiel_protobuf_ContainerForEngine container;
     fill_envelope(c, &container);
     container.which_payload = COCKATIEL_PAYLOAD_CONNECTION_REQUEST;
     container.payload.connection_request.pin = 0;
     container.payload.connection_request.process_position =
-        (cockatiel_protobuf_v1_ProcessPosition)c->process_position;
+        (cockatiel_protobuf_ProcessPosition)c->process_position;
     container.payload.connection_request.priority = c->priority;
     snprintf(container.payload.connection_request.module_instance_uuid7,
              sizeof(container.payload.connection_request.module_instance_uuid7),
@@ -438,7 +459,7 @@ static int cockatiel_callback(struct lws *wsi, enum lws_callback_reasons reason,
 
         case LWS_CALLBACK_CLIENT_RECEIVE: {
             if (len == 0 || !in) break;
-            cockatiel_protobuf_v1_Container container;
+            cockatiel_protobuf_ContainerForModule container;
             memset(&container, 0, sizeof(container));
             if (decode_container((const uint8_t *)in, len, &container) != 0) {
                 break; /* malformed frame: skip */
@@ -454,7 +475,7 @@ static int cockatiel_callback(struct lws *wsi, enum lws_callback_reasons reason,
 
             /* Handshake response: capture JWT + assigned instance id. */
             if (tag == COCKATIEL_PAYLOAD_CONNECTION_REQUEST_RETURN && !c->authed) {
-                const cockatiel_protobuf_v1_ConnectionRequestReturn *ret =
+                const cockatiel_protobuf_ConnectionRequestReturn *ret =
                     &container.payload.connection_request_return;
                 if (ret->new_port != 0) {
                     c->handshake_done = 1;
@@ -491,7 +512,23 @@ static int cockatiel_callback(struct lws *wsi, enum lws_callback_reasons reason,
                 break;
             }
 
-            if (c->authed && c->on_container) {
+            if (!c->authed) break;
+
+            /* Receipt-ack: a stage message with a message_uuid7 must be acked
+             * to the engine immediately, before the user callback runs. */
+            const char *stage_uuid = NULL;
+            if (tag == COCKATIEL_PAYLOAD_MESSAGE_PRE_PROCESS) {
+                stage_uuid = container.payload.message_pre_process.message_uuid7;
+            } else if (tag == COCKATIEL_PAYLOAD_MESSAGE_IN_PROCESS) {
+                stage_uuid = container.payload.message_in_process.message_uuid7;
+            } else if (tag == COCKATIEL_PAYLOAD_MESSAGE_POST_PROCESS) {
+                stage_uuid = container.payload.message_post_process.message_uuid7;
+            }
+            if (stage_uuid && stage_uuid[0]) {
+                send_message_ack(c, stage_uuid);
+            }
+
+            if (c->on_container) {
                 c->on_container(c, &container, c->userdata);
             }
             break;
@@ -645,7 +682,7 @@ int cockatiel_send(cockatiel_client *c, cockatiel_payload payload_field,
     const payload_entry *pe = payload_lookup((uint32_t)payload_field);
     if (!pe || !message) return -1;
 
-    cockatiel_protobuf_v1_Container container;
+    cockatiel_protobuf_ContainerForEngine container;
     fill_envelope(c, &container);
     container.which_payload = pe->tag;
     memcpy(&container.payload, message, pe->size);

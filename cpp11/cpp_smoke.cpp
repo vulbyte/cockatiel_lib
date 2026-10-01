@@ -32,7 +32,7 @@ int main() {
             });
         });
 
-        cockatiel_protobuf_v1_Log log = cockatiel_protobuf_v1_Log_init_zero;
+        cockatiel_protobuf_Log log = cockatiel_protobuf_Log_init_zero;
         std::snprintf(log.log, sizeof(log.log), "C++ client smoke test");
         client.send(COCKATIEL_PAYLOAD_LOG, &log);
         std::printf("[OK] sent Log; uuid7=%s\n", cockatiel::uuid7().c_str());

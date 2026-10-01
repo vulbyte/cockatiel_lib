@@ -1,9 +1,11 @@
 # C client for the Cockatiel engine
 
 One-file import client for the Cockatiel chat engine. Implements the
-[CLIENT_CONTRACT](../CLIENT_CONTRACT.md) wire spec: single-connection
-PIN → JWT auth, full 23-field `Container` codec, automatic `AuthVerify`
-auto-answer, reconnect with stored JWT, and PIN precedence.
+[CLIENT_CONTRACT](../CLIENT_CONTRACT.md) wire spec (V2): single-connection
+PIN → JWT auth, `ContainerForEngine` outbound / `ContainerForModule` inbound
+codec with `version = 2`, automatic `AuthVerify` auto-answer, automatic
+`MessageAck` receipt ping for stage messages, reconnect with stored JWT, and
+PIN precedence.
 
 ## Import
 
@@ -31,7 +33,7 @@ the nanopb runtime in `nanopb/` (`pb_common.c`, `pb_encode.c`,
 #include <stdio.h>
 
 static void on_container(cockatiel_client *client,
-                         const cockatiel_protobuf_v1_Container *c,
+                         const cockatiel_protobuf_ContainerForModule *c,
                          void *userdata) {
     printf("got: %s\n", cockatiel_payload_name(c->which_payload));
     /* AuthVerify is answered automatically inside the receive loop. */
@@ -45,7 +47,7 @@ int main(void) {
         COCKATIEL_POSITION_POSTPROCESS, 10, errbuf, sizeof(errbuf));
     if (!client) { fprintf(stderr, "%s\n", errbuf); return 1; }
 
-    cockatiel_protobuf_v1_Log log = cockatiel_protobuf_v1_Log_init_zero;
+    cockatiel_protobuf_Log log = cockatiel_protobuf_Log_init_zero;
     snprintf(log.log, sizeof(log.log), "hello from C");
     cockatiel_send(client, COCKATIEL_PAYLOAD_LOG, &log);
 
@@ -62,18 +64,21 @@ int main(void) {
   reads `ConnectionRequestReturn`, keeps the socket, stores the JWT. `new_port != 0`
   is treated as a protocol error.
 - `cockatiel_send(client, payload_field, message)` wraps a payload struct in a
-  `Container` (version=1, auth token, module identity).
+  `ContainerForEngine` (version=2, auth token, module identity).
 - `cockatiel_receive_loop(client, on_container, userdata)` decodes every frame,
-  **auto-answers `AuthVerify`** with `cur_auth = <jwt>`, and calls the callback
-  for every other payload. Malformed frames are skipped. The callback must return
-  quickly — the loop does not spawn threads.
+  **auto-answers `AuthVerify`** with `cur_auth = <jwt>`, **auto-acks stage
+  messages** with a `MessageAck` receipt ping (before the callback runs), and
+  calls the callback for every other payload. Malformed frames are skipped. The
+  callback must return quickly — the loop does not spawn threads.
 - `cockatiel_reconnect(client)` fresh socket carrying the stored JWT (reauth; no PIN).
 - `cockatiel_disconnect(client)`.
 - `cockatiel_uuid7(out)` RFC 9562 UUIDv7 string generator.
-- `cockatiel_payload_name(tag)` the 23 payload names from the contract.
+- `cockatiel_payload_name(tag)` the payload names from the contract.
 
-The full 23-field `Container` oneof is decoded (a `ReceiveAny`-style callback gets
-every container); all payload structs are static-size nanopb messages.
+The full `ContainerForModule` oneof is decoded (a `ReceiveAny`-style callback
+gets every container); all payload structs are static-size nanopb messages
+(`PB_FIELD_32BIT` is enabled in the vendored nanopb runtime for the new
+array-returning payloads such as `timeline_query_result`).
 
 ## Building & smoke test
 
@@ -88,7 +93,17 @@ engine), sends a `Log`, and prints every inbound container.
 ## Layout
 
 - `cockatiel_lib.h` / `cockatiel_lib.c` — the one-file client
-- `cockatiel_protobuf.pb.h` / `.pb.c` — generated nanopb code
+- `cockatiel_protobuf.pb.h` / `.pb.c` — generated nanopb code (regenerate from
+  `../cockatiel_protobuf.proto`, package `cockatiel_protobuf`)
 - `cockatiel_protobuf.options` — nanopb generator options (fixed-size buffers)
 - `nanopb/` — vendored nanopb 0.4.9.1 runtime (pb.h, pb_common, pb_encode, pb_decode)
 - `smoke.c` — example / smoke-test executable
+
+The `.pb.c`/`.pb.h` are checked in and compiled directly by CMake; regeneration
+is a manual step:
+
+```sh
+cd cockatiel_lib/c
+python3 -m nanopb.generator.nanopb_generator --error-on-unmatched \
+  -I ../ -I . -D . ../cockatiel_protobuf.proto
+```

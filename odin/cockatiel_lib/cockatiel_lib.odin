@@ -8,8 +8,9 @@ package cockatiel_lib
 
 	Implements CLIENT_CONTRACT.md:
 	  - single-connection PIN -> JWT auth on ONE WebSocket (no two-phase / port hop)
-	  - hand-rolled protobuf wire codec covering the ENTIRE `Container` + all 23
-	    payload messages in the oneof (decode everything; encode what a module sends)
+	  - hand-rolled protobuf wire codec covering the ENTIRE `ContainerForEngine` /
+	    `ContainerForModule` surface (v2 wire, version = 2): decode every inbound
+	    payload; encode what a module sends
 	  - hand-rolled WebSocket (RFC 6455) over core:net TCP sockets
 	  - optional WSS (TLS 1.2/1.3) via OpenSSL, trusting the engine's self-signed
 	    cert given by COCKATIEL_TLS_CERT
@@ -85,7 +86,7 @@ Tls_Read_Status :: enum {
 // Protocol constants (see cockatiel_protobuf.proto)
 // ============================================================================
 
-VERSION :: 1
+VERSION :: 2
 // Plain ws:// default. When COCKATIEL_TLS_CERT is set the client upgrades this
 // (and any ws:// URL) to wss:// automatically and speaks TLS on the socket.
 DEFAULT_URL :: "ws://127.0.0.1:9734"
@@ -108,7 +109,11 @@ PROCESS_POSITION_INPROCESS   :: 2
 PROCESS_POSITION_POSTPROCESS :: 3
 PROCESS_POSITION_CONNECTION  :: 4
 
-// Container.payload oneof field numbers.
+// Container.payload oneof field numbers. Tags are shared across the two v2
+// containers (ContainerForEngine / ContainerForModule); direction is a type
+// contract, not a wire boundary. A tag that flows BOTH ways (e.g. the stage
+// echoes, PredictionUpdate at 31 and 37) is listed once below and the caller
+// picks the direction-dependent number where they differ.
 PAYLOAD_CONNECTION_REQUEST          :: 7
 PAYLOAD_CONNECTION_REQUEST_RETURN   :: 8
 PAYLOAD_AUTH_VERIFY                 :: 9
@@ -132,6 +137,21 @@ PAYLOAD_MODULE_CONTROL_RESULT       :: 26
 PAYLOAD_PROMPT                      :: 27
 PAYLOAD_PROMPT_RESPONSE             :: 28
 PAYLOAD_AUDIT_FLAG                  :: 29
+// ContainerForEngine only (module -> engine).
+PAYLOAD_CHAT_MESSAGE_REJECTED       :: 30
+PAYLOAD_PREDICTION_UPDATE           :: 31
+PAYLOAD_POLL_UPDATE                 :: 32
+PAYLOAD_CHANNEL_STATS               :: 33
+PAYLOAD_TIMELINE_QUERY              :: 34
+PAYLOAD_QUERY_REQUEST               :: 35
+PAYLOAD_USER_DB_REQUEST             :: 36
+// ContainerForModule only (engine -> module).
+PAYLOAD_TIMELINE_QUERY_RESULT       :: 34
+PAYLOAD_QUERY_RESPONSE              :: 35
+PAYLOAD_USER_DB_RESPONSE            :: 36
+PAYLOAD_PREDICTION_UPDATE_IN        :: 37
+PAYLOAD_POLL_UPDATE_IN              :: 38
+PAYLOAD_CHANNEL_STATS_IN            :: 39
 
 // WebSocket opcodes.
 OP_CONTINUATION :: 0x0
@@ -308,6 +328,107 @@ AuditFlag :: struct {
 	origin:        string,
 }
 
+TimelineQueryResult :: struct {
+	events:     [dynamic]TimelineEvent,
+	truncated:  bool,
+	request_id: string,
+}
+
+QueryResult :: struct {
+	result_blob: []byte,
+}
+
+QueryResponse :: struct {
+	request_id: string,
+	operation:  i32,
+	success:    bool,
+	error:      string,
+	result:     ^QueryResult,
+}
+
+ChannelRef :: struct {
+	platform:   string,
+	channel_id: string,
+	handle:     string,
+}
+
+User :: struct {
+	uuid7:         string,
+	username:      string,
+	is_sponsor:    bool,
+	is_moderator:  bool,
+	is_admin:      bool,
+	is_owner:      bool,
+	score:         i64,
+	commendations: i64,
+	reprimands:    i64,
+	channels:      [dynamic]ChannelRef,
+	flags:         string,
+	created_at:    i64,
+	updated_at:    i64,
+	total_score:   i64,
+	messages_sent: i64,
+	rank:          i64,
+}
+
+UserValueResult :: struct {
+	key:   string,
+	value: string,
+}
+
+RatingHistoryEntry :: struct {
+	uuid7:      string,
+	giver_uuid7: string,
+	kind:       string,
+	platform:   string,
+	handle:     string,
+	reason:     string,
+	created_at: i64,
+}
+
+UserDbResponse :: struct {
+	success:        bool,
+	error:          string,
+	user:           ^User,
+	users:          [dynamic]User,
+	message:        string,
+	value:          ^UserValueResult,
+	values:         [dynamic]UserValueResult,
+	rating_history: [dynamic]RatingHistoryEntry,
+}
+
+PredictionUpdate :: struct {
+	prediction_id:     string,
+	prompt:            string,
+	side_left_label:   string,
+	side_right_label:  string,
+	side_left_total:   i64,
+	side_right_total:  i64,
+	pot:               i64,
+	status:            i32,
+	winner_side:       string,
+}
+
+PollUpdate :: struct {
+	poll_id:      string,
+	prompt:       string,
+	options:      [dynamic]string,
+	vote_counts:  [dynamic]i64,
+	total_votes:  i64,
+	status:       i32,
+	winner_index: i32,
+	hide_counts:  bool,
+}
+
+ChannelStats :: struct {
+	platform:   string,
+	channel:    string,
+	viewers:    i64,
+	is_live:    bool,
+	title:      string,
+	updated_at: i64,
+}
+
 ChatMessage :: struct {
 	platform:    string,
 	raw_data:    []byte,
@@ -354,9 +475,14 @@ TimelineEvent :: struct {
 	processed_message: string,
 	user_uuid7:        string,
 	version:           u32,
+	pipeline_status:   string,
 }
 
-// The Container.payload oneof as an Odin union.
+// The payload oneof as an Odin union. It covers BOTH containers: the shared
+// messages, everything a module can SEND (ContainerForEngine) and everything a
+// module can RECEIVE (ContainerForModule). Direction-specific messages appear
+// once — e.g. `TimelineQueryResult` is module-inbound only, `PredictionUpdate`
+// travels both ways (encoded at tag 31, decoded at tag 37).
 Payload :: union {
 	ConnectionRequest,
 	ConnectionRequestReturn,
@@ -381,9 +507,18 @@ Payload :: union {
 	Prompt,
 	PromptResponse,
 	AuditFlag,
+	TimelineQueryResult,
+	QueryResponse,
+	UserDbResponse,
+	PredictionUpdate,
+	PollUpdate,
+	ChannelStats,
 }
 
-// The root envelope. payload == nil means no oneof member is set.
+// The root envelope. Serves BOTH v2 containers: encode writes the
+// ContainerForEngine shape (module_name REQUIRED), decode reads the
+// ContainerForModule shape (field 4 reserved, so module_name is never
+// populated inbound). payload == nil means no oneof member is set.
 Container :: struct {
 	version:              i32,
 	auth_token:           string,
@@ -646,10 +781,21 @@ send_container_raw :: proc(c: ^Client, container: Container) -> bool {
 	return ws_send_frame(c, OP_BINARY, enc[:])
 }
 
+// Returns the message_uuid7 carried by a stage payload ("" for anything else).
+stage_message_uuid7 :: proc(p: Payload) -> string {
+	#partial switch v in p {
+	case MessagePreProcess:  return v.message_uuid7
+	case MessageInProcess:   return v.message_uuid7
+	case MessagePostProcess: return v.message_uuid7
+	}
+	return ""
+}
+
 // ----------------------------------------------------------------------------
 // Receive loop — decodes every frame, auto-answers AuthVerify liveness probes,
-// and dispatches to registered callbacks. Runs until the socket closes or
-// `stop` is set (set from a callback via client.stop = true).
+// receipt-acks stage messages, and dispatches to registered callbacks. Runs
+// until the socket closes or `stop` is set (set from a callback via
+// client.stop = true).
 // Returns 0 on a clean stop/close, non-zero on a hard error.
 // ----------------------------------------------------------------------------
 receive_loop :: proc(c: ^Client) -> int {
@@ -682,6 +828,12 @@ receive_loop :: proc(c: ^Client) -> int {
 			}
 			delete(payload)
 			continue
+		}
+
+		// Receipt-ack: a stage message with a non-empty message_uuid7 is acked
+		// to the engine immediately, BEFORE any user callback runs.
+		if uuid := stage_message_uuid7(container.payload); uuid != "" {
+			send(c, MessageAck { message_uuid7 = uuid })
 		}
 
 		active := active_payload(container)
@@ -772,8 +924,8 @@ active_payload :: proc(c: Container) -> string {
 // Codec entry points
 // ----------------------------------------------------------------------------
 
-// Encodes a Container to protobuf bytes. Returns a dynamic array the caller
-// must delete().
+// Encodes a ContainerForEngine (module -> engine) to protobuf bytes. Returns
+// a dynamic array the caller must delete().
 encode_container :: proc(c: Container) -> [dynamic]u8 {
 	w: [dynamic]u8
 	put_i32_field(&w, 1, c.version)
@@ -781,9 +933,12 @@ encode_container :: proc(c: Container) -> [dynamic]u8 {
 	put_string_field(&w, 4, c.module_name)
 	put_string_field(&w, 5, c.module_instance_uuid7)
 	if c.payload != nil {
-		inner := encode_payload(c.payload)
-		defer delete(inner)
-		put_message_field(&w, payload_field_number(c.payload), inner[:])
+		tag := payload_field_number(c.payload)
+		if tag != 0 {
+			inner := encode_payload(c.payload)
+			defer delete(inner)
+			put_message_field(&w, tag, inner[:])
+		}
 	}
 	return w
 }
@@ -806,10 +961,6 @@ decode_container :: proc(b: []byte) -> (c: Container) {
 		case 3:
 			if s, ok := read_string_field(&r, wire); ok {
 				c.auth_token = s
-			}
-		case 4:
-			if s, ok := read_string_field(&r, wire); ok {
-				c.module_name = s
 			}
 		case 5:
 			if s, ok := read_string_field(&r, wire); ok {
@@ -907,6 +1058,30 @@ decode_container :: proc(b: []byte) -> (c: Container) {
 			if pb, ok := read_msg_field(&r, wire); ok {
 				c.payload = AuditFlag(decode_audit_flag(pb))
 			}
+		case PAYLOAD_TIMELINE_QUERY_RESULT:
+			if pb, ok := read_msg_field(&r, wire); ok {
+				c.payload = TimelineQueryResult(decode_timeline_query_result(pb))
+			}
+		case PAYLOAD_QUERY_RESPONSE:
+			if pb, ok := read_msg_field(&r, wire); ok {
+				c.payload = QueryResponse(decode_query_response(pb))
+			}
+		case PAYLOAD_USER_DB_RESPONSE:
+			if pb, ok := read_msg_field(&r, wire); ok {
+				c.payload = UserDbResponse(decode_user_db_response(pb))
+			}
+		case PAYLOAD_PREDICTION_UPDATE_IN:
+			if pb, ok := read_msg_field(&r, wire); ok {
+				c.payload = PredictionUpdate(decode_prediction_update(pb))
+			}
+		case PAYLOAD_POLL_UPDATE_IN:
+			if pb, ok := read_msg_field(&r, wire); ok {
+				c.payload = PollUpdate(decode_poll_update(pb))
+			}
+		case PAYLOAD_CHANNEL_STATS_IN:
+			if pb, ok := read_msg_field(&r, wire); ok {
+				c.payload = ChannelStats(decode_channel_stats(pb))
+			}
 		case:
 			skip_field(&r, wire)
 		}
@@ -914,32 +1089,34 @@ decode_container :: proc(b: []byte) -> (c: Container) {
 	return
 }
 
-// Maps a Payload union member to its Container oneof field number.
+// Maps a Payload union member to its ContainerForEngine oneof field number
+// (the module -> engine / outbound direction). ContainerForModule-only
+// payloads (ConnectionRequestReturn, AuthNew, TimelineEvent, UserData,
+// Shutdown, DatabaseQueryResult, ModuleControlResult, TimelineQueryResult,
+// QueryResponse, UserDbResponse) have no outbound tag and return 0.
 payload_field_number :: proc(p: Payload) -> int {
-	switch v in p {
+	#partial switch v in p {
 	case ConnectionRequest:        return PAYLOAD_CONNECTION_REQUEST
-	case ConnectionRequestReturn:  return PAYLOAD_CONNECTION_REQUEST_RETURN
 	case AuthVerify:               return PAYLOAD_AUTH_VERIFY
-	case AuthNew:                  return PAYLOAD_AUTH_NEW
 	case Command:                  return PAYLOAD_COMMAND
 	case Commands:                 return PAYLOAD_COMMANDS
 	case MessagePreProcess:        return PAYLOAD_MESSAGE_PRE_PROCESS
 	case MessageInProcess:         return PAYLOAD_MESSAGE_IN_PROCESS
 	case MessagePostProcess:       return PAYLOAD_MESSAGE_POST_PROCESS
-	case TimelineEvent:            return PAYLOAD_TIMELINE_EVENT
-	case UserData:                 return PAYLOAD_USER_DATA
-	case Shutdown:                 return PAYLOAD_SHUTDOWN
 	case Log:                      return PAYLOAD_LOG
 	case Err:                      return PAYLOAD_ERR
 	case SendToPlatforms:          return PAYLOAD_SEND_TO_PLATFORMS
 	case MessageAck:               return PAYLOAD_MESSAGE_ACK
 	case DatabaseQuery:            return PAYLOAD_DATABASE_QUERY
-	case DatabaseQueryResult:      return PAYLOAD_DATABASE_QUERY_RESULT
 	case ModuleControl:            return PAYLOAD_MODULE_CONTROL
-	case ModuleControlResult:      return PAYLOAD_MODULE_CONTROL_RESULT
 	case Prompt:                   return PAYLOAD_PROMPT
 	case PromptResponse:           return PAYLOAD_PROMPT_RESPONSE
 	case AuditFlag:                return PAYLOAD_AUDIT_FLAG
+	case PredictionUpdate:         return PAYLOAD_PREDICTION_UPDATE
+	case PollUpdate:               return PAYLOAD_POLL_UPDATE
+	case ChannelStats:             return PAYLOAD_CHANNEL_STATS
+	case:
+		return 0
 	}
 	return 0
 }
@@ -951,8 +1128,8 @@ payload_name :: proc(p: Payload) -> string {
 	case ConnectionRequestReturn:  return "connectionRequestReturn"
 	case AuthVerify:               return "authVerify"
 	case AuthNew:                  return "authNew"
-	case Command:                  return "commandPayload"
-	case Commands:                 return "commandsPayload"
+	case Command:                  return "command"
+	case Commands:                 return "commands"
 	case MessagePreProcess:        return "messagePreProcess"
 	case MessageInProcess:         return "messageInProcess"
 	case MessagePostProcess:       return "messagePostProcess"
@@ -970,6 +1147,12 @@ payload_name :: proc(p: Payload) -> string {
 	case Prompt:                   return "prompt"
 	case PromptResponse:           return "promptResponse"
 	case AuditFlag:                return "auditFlag"
+	case TimelineQueryResult:      return "timelineQueryResult"
+	case QueryResponse:            return "queryResponse"
+	case UserDbResponse:           return "userDbResponse"
+	case PredictionUpdate:         return "predictionUpdate"
+	case PollUpdate:               return "pollUpdate"
+	case ChannelStats:             return "channelStats"
 	}
 	return ""
 }
@@ -1000,6 +1183,12 @@ encode_payload :: proc(p: Payload) -> [dynamic]u8 {
 	case Prompt:                  return encode_prompt(v)
 	case PromptResponse:          return encode_prompt_response(v)
 	case AuditFlag:               return encode_audit_flag(v)
+	case TimelineQueryResult:     return encode_timeline_query_result(v)
+	case QueryResponse:           return encode_query_response(v)
+	case UserDbResponse:          return encode_user_db_response(v)
+	case PredictionUpdate:        return encode_prediction_update(v)
+	case PollUpdate:              return encode_poll_update(v)
+	case ChannelStats:            return encode_channel_stats(v)
 	}
 	return nil
 }
@@ -1040,6 +1229,12 @@ put_i32_field :: proc(w: ^[dynamic]u8, field_no: int, v: i32) {
 }
 
 put_u32_field :: proc(w: ^[dynamic]u8, field_no: int, v: u32) {
+	if v != 0 {
+		put_varint_field(w, field_no, u64(v))
+	}
+}
+
+put_i64_field :: proc(w: ^[dynamic]u8, field_no: int, v: i64) {
 	if v != 0 {
 		put_varint_field(w, field_no, u64(v))
 	}
@@ -2260,6 +2455,679 @@ decode_audit_flag :: proc(b: []byte) -> (m: AuditFlag) {
 	return
 }
 
+// ── V2 event projections & typed query/user-db results ──────────────────────
+
+encode_prediction_update :: proc(m: PredictionUpdate) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_string_field(&w, 1, m.prediction_id)
+	put_string_field(&w, 2, m.prompt)
+	put_string_field(&w, 3, m.side_left_label)
+	put_string_field(&w, 4, m.side_right_label)
+	put_i64_field(&w, 5, m.side_left_total)
+	put_i64_field(&w, 6, m.side_right_total)
+	put_i64_field(&w, 7, m.pot)
+	put_i32_field(&w, 8, m.status)
+	put_string_field(&w, 9, m.winner_side)
+	return w
+}
+
+decode_prediction_update :: proc(b: []byte) -> (m: PredictionUpdate) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.prediction_id = s
+			}
+		case 2:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.prompt = s
+			}
+		case 3:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.side_left_label = s
+			}
+		case 4:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.side_right_label = s
+			}
+		case 5:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.side_left_total = i64(v)
+			}
+		case 6:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.side_right_total = i64(v)
+			}
+		case 7:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.pot = i64(v)
+			}
+		case 8:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.status = i32(v)
+			}
+		case 9:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.winner_side = s
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_poll_update :: proc(m: PollUpdate) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_string_field(&w, 1, m.poll_id)
+	put_string_field(&w, 2, m.prompt)
+	put_repeated_string_field(&w, 3, m.options[:])
+	for v in m.vote_counts {
+		put_i64_field(&w, 4, v)
+	}
+	put_i64_field(&w, 5, m.total_votes)
+	put_i32_field(&w, 6, m.status)
+	put_i32_field(&w, 7, m.winner_index)
+	put_bool_field(&w, 8, m.hide_counts)
+	return w
+}
+
+decode_poll_update :: proc(b: []byte) -> (m: PollUpdate) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.poll_id = s
+			}
+		case 2:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.prompt = s
+			}
+		case 3:
+			if wire == 2 {
+				if s, ok := read_string(&r); ok {
+					append(&m.options, s)
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case 4:
+			// repeated int64: unpacked (wire 0) or packed (wire 2).
+			if wire == 0 {
+				if v, ok := read_varint(&r); ok {
+					append(&m.vote_counts, i64(v))
+				}
+			} else if wire == 2 {
+				if b, ok := read_bytes(&r); ok {
+					pr := Reader { b = b }
+					for pr.pos < len(pr.b) {
+						if v, ok := read_varint(&pr); ok {
+							append(&m.vote_counts, i64(v))
+						} else {
+							break
+						}
+					}
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case 5:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.total_votes = i64(v)
+			}
+		case 6:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.status = i32(v)
+			}
+		case 7:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.winner_index = i32(v)
+			}
+		case 8:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.hide_counts = v != 0
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_channel_stats :: proc(m: ChannelStats) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_string_field(&w, 1, m.platform)
+	put_string_field(&w, 2, m.channel)
+	put_i64_field(&w, 3, m.viewers)
+	put_bool_field(&w, 4, m.is_live)
+	put_string_field(&w, 5, m.title)
+	put_i64_field(&w, 6, m.updated_at)
+	return w
+}
+
+decode_channel_stats :: proc(b: []byte) -> (m: ChannelStats) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.platform = s
+			}
+		case 2:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.channel = s
+			}
+		case 3:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.viewers = i64(v)
+			}
+		case 4:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.is_live = v != 0
+			}
+		case 5:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.title = s
+			}
+		case 6:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.updated_at = i64(v)
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_timeline_query_result :: proc(m: TimelineQueryResult) -> [dynamic]u8 {
+	w: [dynamic]u8
+	for e in m.events {
+		inner := encode_timeline_event(e)
+		defer delete(inner)
+		put_message_field(&w, 1, inner[:])
+	}
+	put_bool_field(&w, 2, m.truncated)
+	put_string_field(&w, 3, m.request_id)
+	return w
+}
+
+decode_timeline_query_result :: proc(b: []byte) -> (m: TimelineQueryResult) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if wire == 2 {
+				if pb, ok := read_bytes(&r); ok {
+					append(&m.events, decode_timeline_event(pb))
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case 2:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.truncated = v != 0
+			}
+		case 3:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.request_id = s
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_query_result :: proc(m: QueryResult) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_bytes_field(&w, 1, m.result_blob)
+	return w
+}
+
+decode_query_result :: proc(b: []byte) -> (m: QueryResult) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if pb, ok := read_msg_field(&r, wire); ok {
+				m.result_blob = pb
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_query_response :: proc(m: QueryResponse) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_string_field(&w, 1, m.request_id)
+	put_i32_field(&w, 2, m.operation)
+	put_bool_field(&w, 3, m.success)
+	put_string_field(&w, 4, m.error)
+	if m.result != nil {
+		inner := encode_query_result(m.result^)
+		defer delete(inner)
+		put_message_field(&w, 5, inner[:])
+	}
+	return w
+}
+
+decode_query_response :: proc(b: []byte) -> (m: QueryResponse) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.request_id = s
+			}
+		case 2:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.operation = i32(v)
+			}
+		case 3:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.success = v != 0
+			}
+		case 4:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.error = s
+			}
+		case 5:
+			if wire == 2 {
+				if pb, ok := read_bytes(&r); ok {
+					m.result = new(QueryResult)
+					m.result^ = decode_query_result(pb)
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_channel_ref :: proc(m: ChannelRef) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_string_field(&w, 1, m.platform)
+	put_string_field(&w, 2, m.channel_id)
+	put_string_field(&w, 3, m.handle)
+	return w
+}
+
+decode_channel_ref :: proc(b: []byte) -> (m: ChannelRef) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.platform = s
+			}
+		case 2:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.channel_id = s
+			}
+		case 3:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.handle = s
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_user :: proc(m: User) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_string_field(&w, 1, m.uuid7)
+	put_string_field(&w, 2, m.username)
+	put_bool_field(&w, 3, m.is_sponsor)
+	put_bool_field(&w, 4, m.is_moderator)
+	put_bool_field(&w, 5, m.is_admin)
+	put_bool_field(&w, 6, m.is_owner)
+	put_i64_field(&w, 7, m.score)
+	put_i64_field(&w, 8, m.commendations)
+	put_i64_field(&w, 9, m.reprimands)
+	for ch in m.channels {
+		inner := encode_channel_ref(ch)
+		defer delete(inner)
+		put_message_field(&w, 10, inner[:])
+	}
+	put_string_field(&w, 11, m.flags)
+	put_i64_field(&w, 12, m.created_at)
+	put_i64_field(&w, 13, m.updated_at)
+	put_i64_field(&w, 14, m.total_score)
+	put_i64_field(&w, 15, m.messages_sent)
+	put_i64_field(&w, 16, m.rank)
+	return w
+}
+
+decode_user :: proc(b: []byte) -> (m: User) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.uuid7 = s
+			}
+		case 2:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.username = s
+			}
+		case 3:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.is_sponsor = v != 0
+			}
+		case 4:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.is_moderator = v != 0
+			}
+		case 5:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.is_admin = v != 0
+			}
+		case 6:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.is_owner = v != 0
+			}
+		case 7:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.score = i64(v)
+			}
+		case 8:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.commendations = i64(v)
+			}
+		case 9:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.reprimands = i64(v)
+			}
+		case 10:
+			if wire == 2 {
+				if pb, ok := read_bytes(&r); ok {
+					append(&m.channels, decode_channel_ref(pb))
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case 11:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.flags = s
+			}
+		case 12:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.created_at = i64(v)
+			}
+		case 13:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.updated_at = i64(v)
+			}
+		case 14:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.total_score = i64(v)
+			}
+		case 15:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.messages_sent = i64(v)
+			}
+		case 16:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.rank = i64(v)
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_user_value_result :: proc(m: UserValueResult) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_string_field(&w, 1, m.key)
+	put_string_field(&w, 2, m.value)
+	return w
+}
+
+decode_user_value_result :: proc(b: []byte) -> (m: UserValueResult) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.key = s
+			}
+		case 2:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.value = s
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_rating_history_entry :: proc(m: RatingHistoryEntry) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_string_field(&w, 1, m.uuid7)
+	put_string_field(&w, 2, m.giver_uuid7)
+	put_string_field(&w, 3, m.kind)
+	put_string_field(&w, 4, m.platform)
+	put_string_field(&w, 5, m.handle)
+	put_string_field(&w, 6, m.reason)
+	put_i64_field(&w, 7, m.created_at)
+	return w
+}
+
+decode_rating_history_entry :: proc(b: []byte) -> (m: RatingHistoryEntry) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.uuid7 = s
+			}
+		case 2:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.giver_uuid7 = s
+			}
+		case 3:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.kind = s
+			}
+		case 4:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.platform = s
+			}
+		case 5:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.handle = s
+			}
+		case 6:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.reason = s
+			}
+		case 7:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.created_at = i64(v)
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
+encode_user_db_response :: proc(m: UserDbResponse) -> [dynamic]u8 {
+	w: [dynamic]u8
+	put_bool_field(&w, 1, m.success)
+	put_string_field(&w, 2, m.error)
+	if m.user != nil {
+		inner := encode_user(m.user^)
+		defer delete(inner)
+		put_message_field(&w, 3, inner[:])
+	}
+	for u in m.users {
+		inner := encode_user(u)
+		defer delete(inner)
+		put_message_field(&w, 4, inner[:])
+	}
+	put_string_field(&w, 5, m.message)
+	if m.value != nil {
+		inner := encode_user_value_result(m.value^)
+		defer delete(inner)
+		put_message_field(&w, 6, inner[:])
+	}
+	for v in m.values {
+		inner := encode_user_value_result(v)
+		defer delete(inner)
+		put_message_field(&w, 7, inner[:])
+	}
+	for rh in m.rating_history {
+		inner := encode_rating_history_entry(rh)
+		defer delete(inner)
+		put_message_field(&w, 8, inner[:])
+	}
+	return w
+}
+
+decode_user_db_response :: proc(b: []byte) -> (m: UserDbResponse) {
+	r := Reader { b = b }
+	for r.pos < len(r.b) {
+		key, ok := read_varint(&r)
+		if !ok {
+			break
+		}
+		field_no := int(key >> 3)
+		wire := int(key & 7)
+		switch field_no {
+		case 1:
+			if v, ok := read_varint_field(&r, wire); ok {
+				m.success = v != 0
+			}
+		case 2:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.error = s
+			}
+		case 3:
+			if wire == 2 {
+				if pb, ok := read_bytes(&r); ok {
+					m.user = new(User)
+					m.user^ = decode_user(pb)
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case 4:
+			if wire == 2 {
+				if pb, ok := read_bytes(&r); ok {
+					append(&m.users, decode_user(pb))
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case 5:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.message = s
+			}
+		case 6:
+			if wire == 2 {
+				if pb, ok := read_bytes(&r); ok {
+					m.value = new(UserValueResult)
+					m.value^ = decode_user_value_result(pb)
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case 7:
+			if wire == 2 {
+				if pb, ok := read_bytes(&r); ok {
+					append(&m.values, decode_user_value_result(pb))
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case 8:
+			if wire == 2 {
+				if pb, ok := read_bytes(&r); ok {
+					append(&m.rating_history, decode_rating_history_entry(pb))
+				}
+			} else {
+				skip_field(&r, wire)
+			}
+		case:
+			skip_field(&r, wire)
+		}
+	}
+	return
+}
+
 encode_chat_message :: proc(m: ChatMessage) -> [dynamic]u8 {
 	w: [dynamic]u8
 	put_string_field(&w, 1, m.platform)
@@ -2512,6 +3380,7 @@ encode_timeline_event :: proc(m: TimelineEvent) -> [dynamic]u8 {
 	put_string_field(&w, 10, m.processed_message)
 	put_string_field(&w, 11, m.user_uuid7)
 	put_u32_field(&w, 12, m.version)
+	put_string_field(&w, 13, m.pipeline_status)
 	return w
 }
 
@@ -2572,6 +3441,10 @@ decode_timeline_event :: proc(b: []byte) -> (m: TimelineEvent) {
 		case 12:
 			if v, ok := read_varint_field(&r, wire); ok {
 				m.version = u32(v)
+			}
+		case 13:
+			if s, ok := read_string_field(&r, wire); ok {
+				m.pipeline_status = s
 			}
 		case:
 			skip_field(&r, wire)

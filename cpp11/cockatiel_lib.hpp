@@ -17,7 +17,10 @@
 
 namespace cockatiel {
 
-using Container = cockatiel_protobuf_v1_Container;
+/// Inbound container (engine -> module). Version 2 wire protocol.
+using Container = cockatiel_protobuf_ContainerForModule;
+/// Outbound container (module -> engine); carries module_name. Version 2.
+using ContainerForEngine = cockatiel_protobuf_ContainerForEngine;
 using OnContainer = std::function<void(const Container *)>;
 
 /// RAII handle to a Cockatiel engine connection (single-connection PIN→JWT
@@ -57,7 +60,8 @@ class Client {
     }
 
     /// Run the receive loop until the socket closes or stop() is called.
-    /// The loop auto-answers AuthVerify liveness probes.
+    /// The loop auto-answers AuthVerify liveness probes and auto-sends the
+    /// MessageAck receipt ping for stage messages carrying a message_uuid7.
     void receive_loop(const OnContainer &on_container) {
         _cb = on_container;
         cockatiel_receive_loop(

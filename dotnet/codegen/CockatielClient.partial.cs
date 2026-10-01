@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.WebSockets;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -44,14 +45,20 @@ public sealed class CockatielClientOptions
 /// One WebSocket carries the whole session: a ConnectionRequest (PIN) is
 /// answered by a ConnectionRequestReturn carrying a JWT, and every later frame
 /// reuses that JWT on the same socket. See CLIENT_CONTRACT.md.
+///
+/// Wire (V2): outbound frames are `ContainerForEngine` (version=2, carries
+/// module_name); inbound frames are decoded as `ContainerForModule`. Stage
+/// messages carrying a message_uuid7 are receipt-acked with a `MessageAck`
+/// immediately on arrival, before any handler runs.
 /// </summary>
 public sealed class CockatielClient : IDisposable
 {
     private static readonly Dictionary<Type, PropertyInfo> _payloadSetter = BuildPayloadSetter();
-    private static readonly Dictionary<Container.PayloadOneofCase, PropertyInfo> _payloadGetter = BuildPayloadGetter();
+    private static readonly Dictionary<ContainerForModule.PayloadOneofCase, PropertyInfo> _payloadGetter = BuildPayloadGetter();
+    private static readonly HashSet<Type> _inboundTypes = new(BuildPayloadGetter().Values.Select(p => p.PropertyType));
 
     private readonly CockatielClientOptions _opts;
-    private readonly List<Action<Container>> _allHandlers = new();
+    private readonly List<Action<ContainerForModule>> _allHandlers = new();
     private readonly ConcurrentDictionary<Type, List<Action<object>>> _typedHandlers = new();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
 
@@ -99,9 +106,9 @@ public sealed class CockatielClient : IDisposable
         var pin = ResolvePin(opts);
         var requestedUuid = opts.ModuleInstanceUuid7 ?? "";
 
-        var handshake = new Container
+        var handshake = new ContainerForEngine
         {
-            Version = 1,
+            Version = 2,
             AuthToken = "",
             ModuleName = opts.ModuleName,
             ModuleInstanceUuid7 = requestedUuid,
@@ -116,7 +123,7 @@ public sealed class CockatielClient : IDisposable
 
         await SendRawAsync(ws, handshake, ct);
 
-        Container reply;
+        ContainerForModule reply;
         try
         {
             reply = await ReceiveFrameAsync(ws, ct);
@@ -127,7 +134,7 @@ public sealed class CockatielClient : IDisposable
             throw;
         }
 
-        if (reply.PayloadCase != Container.PayloadOneofCase.ConnectionRequestReturn)
+        if (reply.PayloadCase != ContainerForModule.PayloadOneofCase.ConnectionRequestReturn)
         {
             ws.Dispose();
             throw new InvalidOperationException($"Authentication rejected by engine (expected connection_request_return, got {reply.PayloadCase}).");
@@ -154,15 +161,16 @@ public sealed class CockatielClient : IDisposable
     }
 
     /// <summary>
-    /// Send any Container payload. The payload's runtime type is mapped
-    /// automatically to the Container payload oneof field; unknown types throw.
+    /// Send any ContainerForEngine payload. The payload's runtime type is mapped
+    /// automatically to the outbound container's payload oneof field; unknown
+    /// types (e.g. engine->module-only payloads) throw.
     /// </summary>
     public async Task SendAsync<T>(T payload, CancellationToken ct = default) where T : class
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (payload is null) throw new ArgumentNullException(nameof(payload));
         if (!_payloadSetter.TryGetValue(payload.GetType(), out var prop))
-            throw new ArgumentException($"{payload.GetType().Name} is not a valid Container payload type.", nameof(payload));
+            throw new ArgumentException($"{payload.GetType().Name} is not a valid ContainerForEngine payload type.", nameof(payload));
 
         var container = BuildContainer();
         prop.SetValue(container, payload);
@@ -170,19 +178,19 @@ public sealed class CockatielClient : IDisposable
     }
 
     /// <summary>Register a handler for every inbound container.</summary>
-    public void ReceiveAny(Action<Container> handler)
+    public void ReceiveAny(Action<ContainerForModule> handler)
     {
         if (handler is null) throw new ArgumentNullException(nameof(handler));
         _allHandlers.Add(handler);
     }
 
-    /// <summary>Register a typed handler for a specific payload type.</summary>
+    /// <summary>Register a typed handler for a specific inbound payload type.</summary>
     public void On<T>(Action<T> handler) where T : class
     {
         if (handler is null) throw new ArgumentNullException(nameof(handler));
         var type = typeof(T);
-        if (!_payloadSetter.ContainsKey(type))
-            throw new ArgumentException($"{type.Name} is not a valid Container payload type.", nameof(handler));
+        if (!_inboundTypes.Contains(type))
+            throw new ArgumentException($"{type.Name} is not a valid ContainerForModule payload type.", nameof(handler));
         var list = _typedHandlers.GetOrAdd(type, _ => new List<Action<object>>());
         lock (list)
         {
@@ -191,8 +199,8 @@ public sealed class CockatielClient : IDisposable
     }
 
     /// <summary>
-    /// Drop the socket, open a fresh one, and send a Container carrying the
-    /// stored JWT (contract §6). The engine recognizes the valid token as a
+    /// Drop the socket, open a fresh one, and send a ContainerForEngine carrying
+    /// the stored JWT (contract §6). The engine recognizes the valid token as a
     /// reauth — no PIN needed.
     /// </summary>
     public async Task ReconnectAsync(CancellationToken ct = default)
@@ -215,9 +223,9 @@ public sealed class CockatielClient : IDisposable
         // ConnectionRequest (main.rs:1429). A reauth is a ConnectionRequest
         // whose container carries the stored JWT as auth_token — the engine
         // verifies the token and resumes the session (no PIN needed, §6).
-        var reauth = new Container
+        var reauth = new ContainerForEngine
         {
-            Version = 1,
+            Version = 2,
             AuthToken = _authToken,
             ModuleName = _opts.ModuleName,
             ModuleInstanceUuid7 = _instanceUuid7,
@@ -244,7 +252,7 @@ public sealed class CockatielClient : IDisposable
         StartReceiveLoop();
     }
 
-    /// <summary>Gracefully close the connection (optionally announcing a reason).</summary>
+    /// <summary>Gracefully close the connection (the reason rides on the WS close frame).</summary>
     public async Task DisconnectAsync(string reason = "")
     {
         if (_disposed) return;
@@ -253,23 +261,8 @@ public sealed class CockatielClient : IDisposable
         var ws = _ws;
         if (ws is null) return;
 
-        if (!string.IsNullOrEmpty(reason) && ws.State == WebSocketState.Open)
-        {
-            try
-            {
-                var bye = new Container
-                {
-                    Version = 1,
-                    AuthToken = _authToken,
-                    ModuleName = _opts.ModuleName,
-                    ModuleInstanceUuid7 = _instanceUuid7,
-                    Shutdown = new Shutdown { Reason = reason },
-                };
-                await SendLockedAsync(ws, bye, CancellationToken.None);
-            }
-            catch { /* socket may already be closed */ }
-        }
-
+        // V2 has no module->engine Shutdown payload (that direction is
+        // engine->module only), so a graceful close is just the WS close frame.
         // Send our close frame WITHOUT waiting for the reply, then let the
         // receive loop observe the peer's close reply and unwind on its own.
         // Cancelling a pending ReceiveAsync aborts the socket (no close
@@ -328,9 +321,9 @@ public sealed class CockatielClient : IDisposable
         }
     }
 
-    private Container BuildContainer() => new Container
+    private ContainerForEngine BuildContainer() => new ContainerForEngine
     {
-        Version = 1,
+        Version = 2,
         AuthToken = _authToken,
         ModuleName = _opts.ModuleName,
         ModuleInstanceUuid7 = _instanceUuid7,
@@ -345,20 +338,20 @@ public sealed class CockatielClient : IDisposable
         return opts.Pin;
     }
 
-    private async Task SendLockedAsync(ClientWebSocket ws, Container container, CancellationToken ct)
+    private async Task SendLockedAsync(ClientWebSocket ws, ContainerForEngine container, CancellationToken ct)
     {
         await _sendLock.WaitAsync(ct);
         try { await SendRawAsync(ws, container, ct); }
         finally { _sendLock.Release(); }
     }
 
-    private static async Task SendRawAsync(ClientWebSocket ws, Container container, CancellationToken ct)
+    private static async Task SendRawAsync(ClientWebSocket ws, ContainerForEngine container, CancellationToken ct)
     {
         var data = container.ToByteArray();
         await ws.SendAsync(data, WebSocketMessageType.Binary, true, ct);
     }
 
-    private static async Task<Container> ReceiveFrameAsync(ClientWebSocket ws, CancellationToken ct)
+    private static async Task<ContainerForModule> ReceiveFrameAsync(ClientWebSocket ws, CancellationToken ct)
     {
         var buffer = new byte[65536];
         using var ms = new MemoryStream();
@@ -375,7 +368,7 @@ public sealed class CockatielClient : IDisposable
         if (ms.Length == 0)
             throw new InvalidOperationException("Engine sent an empty frame during handshake.");
 
-        return Container.Parser.ParseFrom(ms.ToArray());
+        return ContainerForModule.Parser.ParseFrom(ms.ToArray());
     }
 
     private void StartReceiveLoop()
@@ -410,29 +403,54 @@ public sealed class CockatielClient : IDisposable
 
                 if (ms.Length == 0) continue;
 
-                Container container;
+                ContainerForModule container;
                 try
                 {
-                    container = Container.Parser.ParseFrom(ms.ToArray());
+                    container = ContainerForModule.Parser.ParseFrom(ms.ToArray());
                 }
                 catch
                 {
                     continue; // malformed frames are ignored, never crash the loop
                 }
 
-                if (container.PayloadCase == Container.PayloadOneofCase.AuthVerify)
+                if (container.PayloadCase == ContainerForModule.PayloadOneofCase.AuthVerify)
                 {
                     // Answer the engine's liveness probe immediately on the same
                     // socket so a quiet module is never severed as "unresponsive".
-                    await SendLockedAsync(_ws, new Container
+                    await SendLockedAsync(_ws, new ContainerForEngine
                     {
-                        Version = 1,
+                        Version = 2,
                         AuthToken = _authToken,
                         ModuleName = _opts.ModuleName,
                         ModuleInstanceUuid7 = _instanceUuid7,
                         AuthVerify = new AuthVerify { CurAuth = _authToken },
                     }, ct);
                     continue; // probes are control messages, not user-facing payloads
+                }
+
+                // Receipt-ack: a stage message carrying a message_uuid7 must be
+                // pinged back to the engine BEFORE any processing/handler runs.
+                if (container.PayloadCase is ContainerForModule.PayloadOneofCase.MessagePreProcess
+                    or ContainerForModule.PayloadOneofCase.MessageInProcess
+                    or ContainerForModule.PayloadOneofCase.MessagePostProcess)
+                {
+                    var stageUuid = container.PayloadCase switch
+                    {
+                        ContainerForModule.PayloadOneofCase.MessagePreProcess => container.MessagePreProcess.MessageUuid7,
+                        ContainerForModule.PayloadOneofCase.MessageInProcess => container.MessageInProcess.MessageUuid7,
+                        _ => container.MessagePostProcess.MessageUuid7,
+                    };
+                    if (!string.IsNullOrEmpty(stageUuid))
+                    {
+                        await SendLockedAsync(_ws, new ContainerForEngine
+                        {
+                            Version = 2,
+                            AuthToken = _authToken,
+                            ModuleName = _opts.ModuleName,
+                            ModuleInstanceUuid7 = _instanceUuid7,
+                            MessageAck = new MessageAck { MessageUuid7 = stageUuid },
+                        }, ct);
+                    }
                 }
 
                 Dispatch(container);
@@ -448,11 +466,11 @@ public sealed class CockatielClient : IDisposable
         }
     }
 
-    private void Dispatch(Container container)
+    private void Dispatch(ContainerForModule container)
     {
         var payloadCase = container.PayloadCase;
         object? payload = null;
-        if (payloadCase != Container.PayloadOneofCase.None && _payloadGetter.TryGetValue(payloadCase, out var getter))
+        if (payloadCase != ContainerForModule.PayloadOneofCase.None && _payloadGetter.TryGetValue(payloadCase, out var getter))
             payload = getter.GetValue(container);
 
         // Slow handlers must never block the receive loop (which has to answer
@@ -480,25 +498,25 @@ public sealed class CockatielClient : IDisposable
     private static Dictionary<Type, PropertyInfo> BuildPayloadSetter()
     {
         var map = new Dictionary<Type, PropertyInfo>();
-        foreach (var name in Enum.GetNames(typeof(Container.PayloadOneofCase)))
+        foreach (var name in Enum.GetNames(typeof(ContainerForEngine.PayloadOneofCase)))
         {
-            if (name == nameof(Container.PayloadOneofCase.None)) continue;
-            var prop = typeof(Container).GetProperty(name);
+            if (name == nameof(ContainerForEngine.PayloadOneofCase.None)) continue;
+            var prop = typeof(ContainerForEngine).GetProperty(name);
             if (prop is not null)
                 map[prop.PropertyType] = prop;
         }
         return map;
     }
 
-    private static Dictionary<Container.PayloadOneofCase, PropertyInfo> BuildPayloadGetter()
+    private static Dictionary<ContainerForModule.PayloadOneofCase, PropertyInfo> BuildPayloadGetter()
     {
-        var map = new Dictionary<Container.PayloadOneofCase, PropertyInfo>();
-        foreach (var name in Enum.GetNames(typeof(Container.PayloadOneofCase)))
+        var map = new Dictionary<ContainerForModule.PayloadOneofCase, PropertyInfo>();
+        foreach (var name in Enum.GetNames(typeof(ContainerForModule.PayloadOneofCase)))
         {
-            if (name == nameof(Container.PayloadOneofCase.None)) continue;
-            var prop = typeof(Container).GetProperty(name);
+            if (name == nameof(ContainerForModule.PayloadOneofCase.None)) continue;
+            var prop = typeof(ContainerForModule).GetProperty(name);
             if (prop is not null)
-                map[(Container.PayloadOneofCase)Enum.Parse(typeof(Container.PayloadOneofCase), name)] = prop;
+                map[(ContainerForModule.PayloadOneofCase)Enum.Parse(typeof(ContainerForModule.PayloadOneofCase), name)] = prop;
         }
         return map;
     }

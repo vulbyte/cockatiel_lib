@@ -4,9 +4,12 @@ Pure-LuaJIT client for the Cockatiel chat engine. One self-contained module —
 no luarocks, no luasocket, no cjson, no protobuf/websocket libraries. The
 WebSocket transport is hand-rolled on raw libc sockets via the FFI, and the
 proto3 wire codec is hand-rolled in pure Lua (32-bit split 64-bit varints,
-length-delimited, fixed32/64, packed repeats) covering the entire `Container`
-plus all 23 payload messages. Implements `CLIENT_CONTRACT.md`. WSS/TLS is
-supported via an optional OpenSSL FFI shim (see [TLS](#tls-wss-support)).
+length-delimited, fixed32/64, packed repeats) covering both V2 containers:
+`ContainerForEngine` (module → engine, `module_name` set) for every outbound
+frame and `ContainerForModule` (engine → module, no `module_name`) for every
+inbound frame, including the full engine payload oneof. Implements
+`CLIENT_CONTRACT.md`. WSS/TLS is supported via an optional OpenSSL FFI shim (see
+[TLS](#tls-wss-support)).
 
 ## Import
 
@@ -53,13 +56,11 @@ client:poll()                             -- non-blocking drain + dispatch
 client:disconnect()
 ```
 
-Payload names (the 23 `Container` oneof fields): `connectionRequest`,
-`connectionRequestReturn`, `authVerify`, `authNew`, `commandPayload`,
-`commandsPayload`, `messagePreProcess`, `messageInProcess`,
-`messagePostProcess`, `timelineEvent`, `userData`, `shutdown`, `log`, `err`,
-`sendToPlatforms`, `messageAck`, `databaseQuery`, `databaseQueryResult`,
-`moduleControl`, `moduleControlResult`, `prompt`, `promptResponse`,
-`auditFlag`.
+Module→engine payload names (the `ContainerForEngine` oneof): `connectionRequest`,
+`authVerify`, `command`, `commands`, `messagePreProcess`, `messageInProcess`,
+`messagePostProcess`, `log`, `err`, `sendToPlatforms`, `messageAck`,
+`databaseQuery`, `moduleControl`, `prompt`, `promptResponse`, `auditFlag`,
+`predictionUpdate`, `pollUpdate`, `channelStats`.
 
 ## Key behavior
 
@@ -72,6 +73,10 @@ Payload names (the 23 `Container` oneof fields): `connectionRequest`,
 - **AuthVerify auto-answer** — the receive path replies to the engine's
   liveness probe automatically (inside `poll()` / `receive_loop()`), never in
   a user callback.
+- **Stage receipt ping** — a `messagePreProcess`/`messageInProcess`/
+  `messagePostProcess` with a non-empty `message_uuid7` is immediately answered
+  with a `messageAck` (delivery ping) before any user handler runs; the result
+  path stays the module's own stage echo.
 - **Reconnect** — `reconnect()` opens a fresh socket and re-authenticates with
   the stored JWT (no PIN). The engine gates the first frame on any new socket
   to a `ConnectionRequest`, so the reauth container carries one alongside the

@@ -5,7 +5,10 @@ const PROTO = new URL('./cockatiel_protobuf.proto', import.meta.url).pathname;
 
 async function main() {
   const root = await protobuf.load(PROTO);
-  const pb = { Container: root.lookupType('cockatiel_protobuf.v1.Container') };
+  const pb = {
+    ContainerForEngine: root.lookupType('cockatiel_protobuf.ContainerForEngine'),
+    ContainerForModule: root.lookupType('cockatiel_protobuf.ContainerForModule'),
+  };
   const opts = { url: 'ws://127.0.0.1:9734', pin: 943072, moduleName: 'cockatiel-audit-viewer', processPosition: 'preprocess' };
 
   const withTls = process.env.COCKATIEL_TLS_CERT !== undefined;

@@ -11,7 +11,7 @@ single line of code.
 ## One-line import
 
 ```csharp
-using Cockatiel;   // that's it — client + Container + payload types
+using Cockatiel;   // that's it — client + both Container types + payload types
 ```
 
 Dependencies are minimal:
@@ -69,8 +69,12 @@ so a slow handler never blocks the probe reply.
 - **PIN precedence** (§2): `COCKATIEL_PIN` env → `opts.Pin` → `0`. A
   module-local `.env` is loaded into the process environment first (real env
   wins, §2).
-- **Full 23-field Container codec** (§4): every payload type from the proto,
-  plus `ReceiveAny` / typed `On<T>` listeners. Malformed frames are ignored.
+- **V2 two-container codec** (§4): outbound frames are encoded as
+  `ContainerForEngine` (version=2, carries `module_name`); inbound frames are
+  decoded as `ContainerForModule`. Every payload type from the proto is
+  covered, plus `ReceiveAny` / typed `On<T>` listeners, and stage messages
+  carrying a `message_uuid7` are receipt-acked with `MessageAck` before any
+  handler runs. Malformed frames are ignored.
 - **Liveness** (§5): automatic `AuthVerify` answer inside the receive loop.
 - **Reconnect** (§6): fresh socket + Container carrying the stored JWT.
   Note: the engine requires a fresh connection's FIRST message to be a
@@ -118,6 +122,6 @@ cd dotnet
 ```
 
 The script compiles the vendored proto with `protoc --csharp_out`, remaps the
-generated namespace (`CockatielProtobuf.V1` → `Cockatiel`) and splices in
+generated namespace (`CockatielProtobuf` → `Cockatiel`) and splices in
 `codegen/CockatielClient.partial.cs`. Edit the client in the partial and
 re-run, or edit `Cockatiel.cs` directly.
