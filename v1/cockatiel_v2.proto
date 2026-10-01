@@ -1,3 +1,13 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// DO NOT UPDATE, V1 IS NO LONGER SUPPORTED AND IS ONLY HERE FOR LEGACY SUPPORT,
+// PLEASE DO ALL WORK WITH THE CURRENT V2 INSTEAD
+// ─────────────────────────────────────────────────────────────────────────────
+// The old V2 spec (direction-split containers). Superseded by the unified
+// `cockatiel_protobuf.proto` at the repository root, which now carries the
+// containers, the typed query surface, the timeline read path and the
+// user-database data model in one file. Archived for reference; never built.
+// ─────────────────────────────────────────────────────────────────────────────
+
 syntax = "proto3";
 package cockatiel_protobuf.v2;
 
