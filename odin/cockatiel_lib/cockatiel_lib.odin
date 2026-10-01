@@ -359,15 +359,15 @@ User :: struct {
 	is_moderator:  bool,
 	is_admin:      bool,
 	is_owner:      bool,
-	score:         i64,
-	commendations: i64,
-	reprimands:    i64,
+	score:         i32,
+	commendations: i32,
+	reprimands:    i32,
 	channels:      [dynamic]ChannelRef,
 	flags:         string,
 	created_at:    i64,
 	updated_at:    i64,
-	total_score:   i64,
-	messages_sent: i64,
+	total_score:   i32,
+	messages_sent: i32,
 	rank:          f32,
 }
 
@@ -402,9 +402,9 @@ PredictionUpdate :: struct {
 	prompt:            string,
 	side_left_label:   string,
 	side_right_label:  string,
-	side_left_total:   i64,
-	side_right_total:  i64,
-	pot:               i64,
+	side_left_total:   i32,
+	side_right_total:  i32,
+	pot:               i32,
 	status:            i32,
 	winner_side:       string,
 }
@@ -413,8 +413,8 @@ PollUpdate :: struct {
 	poll_id:      string,
 	prompt:       string,
 	options:      [dynamic]string,
-	vote_counts:  [dynamic]i64,
-	total_votes:  i64,
+	vote_counts:  [dynamic]i32,
+	total_votes:  i32,
 	status:       i32,
 	winner_index: i32,
 	hide_counts:  bool,
@@ -423,7 +423,7 @@ PollUpdate :: struct {
 ChannelStats :: struct {
 	platform:   string,
 	channel:    string,
-	viewers:    i64,
+	viewers:    i32,
 	is_live:    bool,
 	title:      string,
 	updated_at: i64,
@@ -2463,9 +2463,9 @@ encode_prediction_update :: proc(m: PredictionUpdate) -> [dynamic]u8 {
 	put_string_field(&w, 2, m.prompt)
 	put_string_field(&w, 3, m.side_left_label)
 	put_string_field(&w, 4, m.side_right_label)
-	put_i64_field(&w, 5, m.side_left_total)
-	put_i64_field(&w, 6, m.side_right_total)
-	put_i64_field(&w, 7, m.pot)
+	put_i32_field(&w, 5, m.side_left_total)
+	put_i32_field(&w, 6, m.side_right_total)
+	put_i32_field(&w, 7, m.pot)
 	put_i32_field(&w, 8, m.status)
 	put_string_field(&w, 9, m.winner_side)
 	return w
@@ -2499,15 +2499,15 @@ decode_prediction_update :: proc(b: []byte) -> (m: PredictionUpdate) {
 			}
 		case 5:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.side_left_total = i64(v)
+				m.side_left_total = i32(v)
 			}
 		case 6:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.side_right_total = i64(v)
+				m.side_right_total = i32(v)
 			}
 		case 7:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.pot = i64(v)
+				m.pot = i32(v)
 			}
 		case 8:
 			if v, ok := read_varint_field(&r, wire); ok {
@@ -2530,9 +2530,9 @@ encode_poll_update :: proc(m: PollUpdate) -> [dynamic]u8 {
 	put_string_field(&w, 2, m.prompt)
 	put_repeated_string_field(&w, 3, m.options[:])
 	for v in m.vote_counts {
-		put_i64_field(&w, 4, v)
+		put_i32_field(&w, 4, v)
 	}
-	put_i64_field(&w, 5, m.total_votes)
+	put_i32_field(&w, 5, m.total_votes)
 	put_i32_field(&w, 6, m.status)
 	put_i32_field(&w, 7, m.winner_index)
 	put_bool_field(&w, 8, m.hide_counts)
@@ -2566,17 +2566,17 @@ decode_poll_update :: proc(b: []byte) -> (m: PollUpdate) {
 				skip_field(&r, wire)
 			}
 		case 4:
-			// repeated int64: unpacked (wire 0) or packed (wire 2).
+			// repeated int32: unpacked (wire 0) or packed (wire 2).
 			if wire == 0 {
 				if v, ok := read_varint(&r); ok {
-					append(&m.vote_counts, i64(v))
+					append(&m.vote_counts, i32(v))
 				}
 			} else if wire == 2 {
 				if b, ok := read_bytes(&r); ok {
 					pr := Reader { b = b }
 					for pr.pos < len(pr.b) {
 						if v, ok := read_varint(&pr); ok {
-							append(&m.vote_counts, i64(v))
+							append(&m.vote_counts, i32(v))
 						} else {
 							break
 						}
@@ -2587,7 +2587,7 @@ decode_poll_update :: proc(b: []byte) -> (m: PollUpdate) {
 			}
 		case 5:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.total_votes = i64(v)
+				m.total_votes = i32(v)
 			}
 		case 6:
 			if v, ok := read_varint_field(&r, wire); ok {
@@ -2612,7 +2612,7 @@ encode_channel_stats :: proc(m: ChannelStats) -> [dynamic]u8 {
 	w: [dynamic]u8
 	put_string_field(&w, 1, m.platform)
 	put_string_field(&w, 2, m.channel)
-	put_i64_field(&w, 3, m.viewers)
+	put_i32_field(&w, 3, m.viewers)
 	put_bool_field(&w, 4, m.is_live)
 	put_string_field(&w, 5, m.title)
 	put_i64_field(&w, 6, m.updated_at)
@@ -2639,7 +2639,7 @@ decode_channel_stats :: proc(b: []byte) -> (m: ChannelStats) {
 			}
 		case 3:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.viewers = i64(v)
+				m.viewers = i32(v)
 			}
 		case 4:
 			if v, ok := read_varint_field(&r, wire); ok {
@@ -2833,9 +2833,9 @@ encode_user :: proc(m: User) -> [dynamic]u8 {
 	put_bool_field(&w, 4, m.is_moderator)
 	put_bool_field(&w, 5, m.is_admin)
 	put_bool_field(&w, 6, m.is_owner)
-	put_i64_field(&w, 7, m.score)
-	put_i64_field(&w, 8, m.commendations)
-	put_i64_field(&w, 9, m.reprimands)
+	put_i32_field(&w, 7, m.score)
+	put_i32_field(&w, 8, m.commendations)
+	put_i32_field(&w, 9, m.reprimands)
 	for ch in m.channels {
 		inner := encode_channel_ref(ch)
 		defer delete(inner)
@@ -2844,8 +2844,8 @@ encode_user :: proc(m: User) -> [dynamic]u8 {
 	put_string_field(&w, 11, m.flags)
 	put_i64_field(&w, 12, m.created_at)
 	put_i64_field(&w, 13, m.updated_at)
-	put_i64_field(&w, 14, m.total_score)
-	put_i64_field(&w, 15, m.messages_sent)
+	put_i32_field(&w, 14, m.total_score)
+	put_i32_field(&w, 15, m.messages_sent)
 	put_float_field(&w, 16, m.rank)
 	return w
 }
@@ -2886,15 +2886,15 @@ decode_user :: proc(b: []byte) -> (m: User) {
 			}
 		case 7:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.score = i64(v)
+				m.score = i32(v)
 			}
 		case 8:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.commendations = i64(v)
+				m.commendations = i32(v)
 			}
 		case 9:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.reprimands = i64(v)
+				m.reprimands = i32(v)
 			}
 		case 10:
 			if wire == 2 {
@@ -2918,11 +2918,11 @@ decode_user :: proc(b: []byte) -> (m: User) {
 			}
 		case 14:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.total_score = i64(v)
+				m.total_score = i32(v)
 			}
 		case 15:
 			if v, ok := read_varint_field(&r, wire); ok {
-				m.messages_sent = i64(v)
+				m.messages_sent = i32(v)
 			}
 		case 16:
 			if f, ok := read_float_field(&r, wire); ok {

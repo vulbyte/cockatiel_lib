@@ -12095,13 +12095,13 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "duration_secs" field.</summary>
     public const int DurationSecsFieldNumber = 14;
-    private long durationSecs_;
+    private int durationSecs_;
     /// <summary>
     /// MOD_TIMEOUT / USERDB_TIMEOUT. 0 means the engine's default.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long DurationSecs {
+    public int DurationSecs {
       get { return durationSecs_; }
       set {
         durationSecs_ = value;
@@ -12220,7 +12220,7 @@ namespace Cockatiel {
       if (Handle.Length != 0) hash ^= Handle.GetHashCode();
       if (ChannelId.Length != 0) hash ^= ChannelId.GetHashCode();
       if (Reason.Length != 0) hash ^= Reason.GetHashCode();
-      if (DurationSecs != 0L) hash ^= DurationSecs.GetHashCode();
+      if (DurationSecs != 0) hash ^= DurationSecs.GetHashCode();
       if (ModuleName.Length != 0) hash ^= ModuleName.GetHashCode();
       if (BatchUuid.Length != 0) hash ^= BatchUuid.GetHashCode();
       if (actor_ != null) hash ^= Actor.GetHashCode();
@@ -12291,9 +12291,9 @@ namespace Cockatiel {
         output.WriteRawTag(106);
         output.WriteString(Reason);
       }
-      if (DurationSecs != 0L) {
+      if (DurationSecs != 0) {
         output.WriteRawTag(112);
-        output.WriteInt64(DurationSecs);
+        output.WriteInt32(DurationSecs);
       }
       if (ModuleName.Length != 0) {
         output.WriteRawTag(122);
@@ -12369,9 +12369,9 @@ namespace Cockatiel {
         output.WriteRawTag(106);
         output.WriteString(Reason);
       }
-      if (DurationSecs != 0L) {
+      if (DurationSecs != 0) {
         output.WriteRawTag(112);
-        output.WriteInt64(DurationSecs);
+        output.WriteInt32(DurationSecs);
       }
       if (ModuleName.Length != 0) {
         output.WriteRawTag(122);
@@ -12435,8 +12435,8 @@ namespace Cockatiel {
       if (Reason.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Reason);
       }
-      if (DurationSecs != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(DurationSecs);
+      if (DurationSecs != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(DurationSecs);
       }
       if (ModuleName.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(ModuleName);
@@ -12498,7 +12498,7 @@ namespace Cockatiel {
       if (other.Reason.Length != 0) {
         Reason = other.Reason;
       }
-      if (other.DurationSecs != 0L) {
+      if (other.DurationSecs != 0) {
         DurationSecs = other.DurationSecs;
       }
       if (other.ModuleName.Length != 0) {
@@ -12584,7 +12584,7 @@ namespace Cockatiel {
             break;
           }
           case 112: {
-            DurationSecs = input.ReadInt64();
+            DurationSecs = input.ReadInt32();
             break;
           }
           case 122: {
@@ -12674,7 +12674,7 @@ namespace Cockatiel {
             break;
           }
           case 112: {
-            DurationSecs = input.ReadInt64();
+            DurationSecs = input.ReadInt32();
             break;
           }
           case 122: {
@@ -14006,13 +14006,13 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "score" field.</summary>
     public const int ScoreFieldNumber = 7;
-    private long score_;
+    private int score_;
     /// <summary>
     /// CURRENT (spendable) score
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Score {
+    public int Score {
       get { return score_; }
       set {
         score_ = value;
@@ -14021,10 +14021,10 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "commendations" field.</summary>
     public const int CommendationsFieldNumber = 8;
-    private long commendations_;
+    private int commendations_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Commendations {
+    public int Commendations {
       get { return commendations_; }
       set {
         commendations_ = value;
@@ -14033,10 +14033,10 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "reprimands" field.</summary>
     public const int ReprimandsFieldNumber = 9;
-    private long reprimands_;
+    private int reprimands_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Reprimands {
+    public int Reprimands {
       get { return reprimands_; }
       set {
         reprimands_ = value;
@@ -14095,14 +14095,14 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "total_score" field.</summary>
     public const int TotalScoreFieldNumber = 14;
-    private long totalScore_;
+    private int totalScore_;
     /// <summary>
     /// Lifetime score earned (never reduced by spending). Backfilled from `score`
     /// at migration time; every positive score change also bumps it.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long TotalScore {
+    public int TotalScore {
       get { return totalScore_; }
       set {
         totalScore_ = value;
@@ -14111,13 +14111,13 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "messages_sent" field.</summary>
     public const int MessagesSentFieldNumber = 15;
-    private long messagesSent_;
+    private int messagesSent_;
     /// <summary>
     /// How many chat messages this user has sent (a rank factor).
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long MessagesSent {
+    public int MessagesSent {
       get { return messagesSent_; }
       set {
         messagesSent_ = value;
@@ -14186,15 +14186,15 @@ namespace Cockatiel {
       if (IsModerator != false) hash ^= IsModerator.GetHashCode();
       if (IsAdmin != false) hash ^= IsAdmin.GetHashCode();
       if (IsOwner != false) hash ^= IsOwner.GetHashCode();
-      if (Score != 0L) hash ^= Score.GetHashCode();
-      if (Commendations != 0L) hash ^= Commendations.GetHashCode();
-      if (Reprimands != 0L) hash ^= Reprimands.GetHashCode();
+      if (Score != 0) hash ^= Score.GetHashCode();
+      if (Commendations != 0) hash ^= Commendations.GetHashCode();
+      if (Reprimands != 0) hash ^= Reprimands.GetHashCode();
       hash ^= channels_.GetHashCode();
       if (Flags.Length != 0) hash ^= Flags.GetHashCode();
       if (CreatedAt != 0L) hash ^= CreatedAt.GetHashCode();
       if (UpdatedAt != 0L) hash ^= UpdatedAt.GetHashCode();
-      if (TotalScore != 0L) hash ^= TotalScore.GetHashCode();
-      if (MessagesSent != 0L) hash ^= MessagesSent.GetHashCode();
+      if (TotalScore != 0) hash ^= TotalScore.GetHashCode();
+      if (MessagesSent != 0) hash ^= MessagesSent.GetHashCode();
       if (Rank != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(Rank);
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -14238,17 +14238,17 @@ namespace Cockatiel {
         output.WriteRawTag(48);
         output.WriteBool(IsOwner);
       }
-      if (Score != 0L) {
+      if (Score != 0) {
         output.WriteRawTag(56);
-        output.WriteInt64(Score);
+        output.WriteInt32(Score);
       }
-      if (Commendations != 0L) {
+      if (Commendations != 0) {
         output.WriteRawTag(64);
-        output.WriteInt64(Commendations);
+        output.WriteInt32(Commendations);
       }
-      if (Reprimands != 0L) {
+      if (Reprimands != 0) {
         output.WriteRawTag(72);
-        output.WriteInt64(Reprimands);
+        output.WriteInt32(Reprimands);
       }
       channels_.WriteTo(output, _repeated_channels_codec);
       if (Flags.Length != 0) {
@@ -14263,13 +14263,13 @@ namespace Cockatiel {
         output.WriteRawTag(104);
         output.WriteInt64(UpdatedAt);
       }
-      if (TotalScore != 0L) {
+      if (TotalScore != 0) {
         output.WriteRawTag(112);
-        output.WriteInt64(TotalScore);
+        output.WriteInt32(TotalScore);
       }
-      if (MessagesSent != 0L) {
+      if (MessagesSent != 0) {
         output.WriteRawTag(120);
-        output.WriteInt64(MessagesSent);
+        output.WriteInt32(MessagesSent);
       }
       if (Rank != 0F) {
         output.WriteRawTag(133, 1);
@@ -14309,17 +14309,17 @@ namespace Cockatiel {
         output.WriteRawTag(48);
         output.WriteBool(IsOwner);
       }
-      if (Score != 0L) {
+      if (Score != 0) {
         output.WriteRawTag(56);
-        output.WriteInt64(Score);
+        output.WriteInt32(Score);
       }
-      if (Commendations != 0L) {
+      if (Commendations != 0) {
         output.WriteRawTag(64);
-        output.WriteInt64(Commendations);
+        output.WriteInt32(Commendations);
       }
-      if (Reprimands != 0L) {
+      if (Reprimands != 0) {
         output.WriteRawTag(72);
-        output.WriteInt64(Reprimands);
+        output.WriteInt32(Reprimands);
       }
       channels_.WriteTo(ref output, _repeated_channels_codec);
       if (Flags.Length != 0) {
@@ -14334,13 +14334,13 @@ namespace Cockatiel {
         output.WriteRawTag(104);
         output.WriteInt64(UpdatedAt);
       }
-      if (TotalScore != 0L) {
+      if (TotalScore != 0) {
         output.WriteRawTag(112);
-        output.WriteInt64(TotalScore);
+        output.WriteInt32(TotalScore);
       }
-      if (MessagesSent != 0L) {
+      if (MessagesSent != 0) {
         output.WriteRawTag(120);
-        output.WriteInt64(MessagesSent);
+        output.WriteInt32(MessagesSent);
       }
       if (Rank != 0F) {
         output.WriteRawTag(133, 1);
@@ -14374,14 +14374,14 @@ namespace Cockatiel {
       if (IsOwner != false) {
         size += 1 + 1;
       }
-      if (Score != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Score);
+      if (Score != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Score);
       }
-      if (Commendations != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Commendations);
+      if (Commendations != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Commendations);
       }
-      if (Reprimands != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Reprimands);
+      if (Reprimands != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Reprimands);
       }
       size += channels_.CalculateSize(_repeated_channels_codec);
       if (Flags.Length != 0) {
@@ -14393,11 +14393,11 @@ namespace Cockatiel {
       if (UpdatedAt != 0L) {
         size += 1 + pb::CodedOutputStream.ComputeInt64Size(UpdatedAt);
       }
-      if (TotalScore != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(TotalScore);
+      if (TotalScore != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(TotalScore);
       }
-      if (MessagesSent != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(MessagesSent);
+      if (MessagesSent != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(MessagesSent);
       }
       if (Rank != 0F) {
         size += 2 + 4;
@@ -14432,13 +14432,13 @@ namespace Cockatiel {
       if (other.IsOwner != false) {
         IsOwner = other.IsOwner;
       }
-      if (other.Score != 0L) {
+      if (other.Score != 0) {
         Score = other.Score;
       }
-      if (other.Commendations != 0L) {
+      if (other.Commendations != 0) {
         Commendations = other.Commendations;
       }
-      if (other.Reprimands != 0L) {
+      if (other.Reprimands != 0) {
         Reprimands = other.Reprimands;
       }
       channels_.Add(other.channels_);
@@ -14451,10 +14451,10 @@ namespace Cockatiel {
       if (other.UpdatedAt != 0L) {
         UpdatedAt = other.UpdatedAt;
       }
-      if (other.TotalScore != 0L) {
+      if (other.TotalScore != 0) {
         TotalScore = other.TotalScore;
       }
-      if (other.MessagesSent != 0L) {
+      if (other.MessagesSent != 0) {
         MessagesSent = other.MessagesSent;
       }
       if (other.Rank != 0F) {
@@ -14504,15 +14504,15 @@ namespace Cockatiel {
             break;
           }
           case 56: {
-            Score = input.ReadInt64();
+            Score = input.ReadInt32();
             break;
           }
           case 64: {
-            Commendations = input.ReadInt64();
+            Commendations = input.ReadInt32();
             break;
           }
           case 72: {
-            Reprimands = input.ReadInt64();
+            Reprimands = input.ReadInt32();
             break;
           }
           case 82: {
@@ -14532,11 +14532,11 @@ namespace Cockatiel {
             break;
           }
           case 112: {
-            TotalScore = input.ReadInt64();
+            TotalScore = input.ReadInt32();
             break;
           }
           case 120: {
-            MessagesSent = input.ReadInt64();
+            MessagesSent = input.ReadInt32();
             break;
           }
           case 128: {
@@ -14587,15 +14587,15 @@ namespace Cockatiel {
             break;
           }
           case 56: {
-            Score = input.ReadInt64();
+            Score = input.ReadInt32();
             break;
           }
           case 64: {
-            Commendations = input.ReadInt64();
+            Commendations = input.ReadInt32();
             break;
           }
           case 72: {
-            Reprimands = input.ReadInt64();
+            Reprimands = input.ReadInt32();
             break;
           }
           case 82: {
@@ -14615,11 +14615,11 @@ namespace Cockatiel {
             break;
           }
           case 112: {
-            TotalScore = input.ReadInt64();
+            TotalScore = input.ReadInt32();
             break;
           }
           case 120: {
-            MessagesSent = input.ReadInt64();
+            MessagesSent = input.ReadInt32();
             break;
           }
           case 128: {
@@ -15660,13 +15660,13 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "delta" field.</summary>
     public const int DeltaFieldNumber = 2;
-    private long delta_;
+    private int delta_;
     /// <summary>
     /// signed change; add=+n, remove=-n
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Delta {
+    public int Delta {
       get { return delta_; }
       set {
         delta_ = value;
@@ -15711,7 +15711,7 @@ namespace Cockatiel {
     public override int GetHashCode() {
       int hash = 1;
       if (Uuid7.Length != 0) hash ^= Uuid7.GetHashCode();
-      if (Delta != 0L) hash ^= Delta.GetHashCode();
+      if (Delta != 0) hash ^= Delta.GetHashCode();
       if (Reason.Length != 0) hash ^= Reason.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -15735,9 +15735,9 @@ namespace Cockatiel {
         output.WriteRawTag(10);
         output.WriteString(Uuid7);
       }
-      if (Delta != 0L) {
+      if (Delta != 0) {
         output.WriteRawTag(16);
-        output.WriteInt64(Delta);
+        output.WriteInt32(Delta);
       }
       if (Reason.Length != 0) {
         output.WriteRawTag(26);
@@ -15757,9 +15757,9 @@ namespace Cockatiel {
         output.WriteRawTag(10);
         output.WriteString(Uuid7);
       }
-      if (Delta != 0L) {
+      if (Delta != 0) {
         output.WriteRawTag(16);
-        output.WriteInt64(Delta);
+        output.WriteInt32(Delta);
       }
       if (Reason.Length != 0) {
         output.WriteRawTag(26);
@@ -15778,8 +15778,8 @@ namespace Cockatiel {
       if (Uuid7.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Uuid7);
       }
-      if (Delta != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Delta);
+      if (Delta != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Delta);
       }
       if (Reason.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Reason);
@@ -15799,7 +15799,7 @@ namespace Cockatiel {
       if (other.Uuid7.Length != 0) {
         Uuid7 = other.Uuid7;
       }
-      if (other.Delta != 0L) {
+      if (other.Delta != 0) {
         Delta = other.Delta;
       }
       if (other.Reason.Length != 0) {
@@ -15829,7 +15829,7 @@ namespace Cockatiel {
             break;
           }
           case 16: {
-            Delta = input.ReadInt64();
+            Delta = input.ReadInt32();
             break;
           }
           case 26: {
@@ -15860,7 +15860,7 @@ namespace Cockatiel {
             break;
           }
           case 16: {
-            Delta = input.ReadInt64();
+            Delta = input.ReadInt32();
             break;
           }
           case 26: {
@@ -19042,10 +19042,10 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "amount" field.</summary>
     public const int AmountFieldNumber = 2;
-    private long amount_;
+    private int amount_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Amount {
+    public int Amount {
       get { return amount_; }
       set {
         amount_ = value;
@@ -19090,7 +19090,7 @@ namespace Cockatiel {
     public override int GetHashCode() {
       int hash = 1;
       if (Uuid7.Length != 0) hash ^= Uuid7.GetHashCode();
-      if (Amount != 0L) hash ^= Amount.GetHashCode();
+      if (Amount != 0) hash ^= Amount.GetHashCode();
       if (Reason.Length != 0) hash ^= Reason.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -19114,9 +19114,9 @@ namespace Cockatiel {
         output.WriteRawTag(10);
         output.WriteString(Uuid7);
       }
-      if (Amount != 0L) {
+      if (Amount != 0) {
         output.WriteRawTag(16);
-        output.WriteInt64(Amount);
+        output.WriteInt32(Amount);
       }
       if (Reason.Length != 0) {
         output.WriteRawTag(26);
@@ -19136,9 +19136,9 @@ namespace Cockatiel {
         output.WriteRawTag(10);
         output.WriteString(Uuid7);
       }
-      if (Amount != 0L) {
+      if (Amount != 0) {
         output.WriteRawTag(16);
-        output.WriteInt64(Amount);
+        output.WriteInt32(Amount);
       }
       if (Reason.Length != 0) {
         output.WriteRawTag(26);
@@ -19157,8 +19157,8 @@ namespace Cockatiel {
       if (Uuid7.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Uuid7);
       }
-      if (Amount != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Amount);
+      if (Amount != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Amount);
       }
       if (Reason.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Reason);
@@ -19178,7 +19178,7 @@ namespace Cockatiel {
       if (other.Uuid7.Length != 0) {
         Uuid7 = other.Uuid7;
       }
-      if (other.Amount != 0L) {
+      if (other.Amount != 0) {
         Amount = other.Amount;
       }
       if (other.Reason.Length != 0) {
@@ -19208,7 +19208,7 @@ namespace Cockatiel {
             break;
           }
           case 16: {
-            Amount = input.ReadInt64();
+            Amount = input.ReadInt32();
             break;
           }
           case 26: {
@@ -19239,7 +19239,7 @@ namespace Cockatiel {
             break;
           }
           case 16: {
-            Amount = input.ReadInt64();
+            Amount = input.ReadInt32();
             break;
           }
           case 26: {
@@ -21853,13 +21853,13 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "side_left_total" field.</summary>
     public const int SideLeftTotalFieldNumber = 5;
-    private long sideLeftTotal_;
+    private int sideLeftTotal_;
     /// <summary>
     /// score bet on the left side
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long SideLeftTotal {
+    public int SideLeftTotal {
       get { return sideLeftTotal_; }
       set {
         sideLeftTotal_ = value;
@@ -21868,13 +21868,13 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "side_right_total" field.</summary>
     public const int SideRightTotalFieldNumber = 6;
-    private long sideRightTotal_;
+    private int sideRightTotal_;
     /// <summary>
     /// score bet on the right side
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long SideRightTotal {
+    public int SideRightTotal {
       get { return sideRightTotal_; }
       set {
         sideRightTotal_ = value;
@@ -21883,10 +21883,10 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "pot" field.</summary>
     public const int PotFieldNumber = 7;
-    private long pot_;
+    private int pot_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Pot {
+    public int Pot {
       get { return pot_; }
       set {
         pot_ = value;
@@ -21955,9 +21955,9 @@ namespace Cockatiel {
       if (Prompt.Length != 0) hash ^= Prompt.GetHashCode();
       if (SideLeftLabel.Length != 0) hash ^= SideLeftLabel.GetHashCode();
       if (SideRightLabel.Length != 0) hash ^= SideRightLabel.GetHashCode();
-      if (SideLeftTotal != 0L) hash ^= SideLeftTotal.GetHashCode();
-      if (SideRightTotal != 0L) hash ^= SideRightTotal.GetHashCode();
-      if (Pot != 0L) hash ^= Pot.GetHashCode();
+      if (SideLeftTotal != 0) hash ^= SideLeftTotal.GetHashCode();
+      if (SideRightTotal != 0) hash ^= SideRightTotal.GetHashCode();
+      if (Pot != 0) hash ^= Pot.GetHashCode();
       if (Status != global::Cockatiel.PredictionUpdate.Types.Status.Unspecified) hash ^= Status.GetHashCode();
       if (WinnerSide.Length != 0) hash ^= WinnerSide.GetHashCode();
       if (_unknownFields != null) {
@@ -21994,17 +21994,17 @@ namespace Cockatiel {
         output.WriteRawTag(34);
         output.WriteString(SideRightLabel);
       }
-      if (SideLeftTotal != 0L) {
+      if (SideLeftTotal != 0) {
         output.WriteRawTag(40);
-        output.WriteInt64(SideLeftTotal);
+        output.WriteInt32(SideLeftTotal);
       }
-      if (SideRightTotal != 0L) {
+      if (SideRightTotal != 0) {
         output.WriteRawTag(48);
-        output.WriteInt64(SideRightTotal);
+        output.WriteInt32(SideRightTotal);
       }
-      if (Pot != 0L) {
+      if (Pot != 0) {
         output.WriteRawTag(56);
-        output.WriteInt64(Pot);
+        output.WriteInt32(Pot);
       }
       if (Status != global::Cockatiel.PredictionUpdate.Types.Status.Unspecified) {
         output.WriteRawTag(64);
@@ -22040,17 +22040,17 @@ namespace Cockatiel {
         output.WriteRawTag(34);
         output.WriteString(SideRightLabel);
       }
-      if (SideLeftTotal != 0L) {
+      if (SideLeftTotal != 0) {
         output.WriteRawTag(40);
-        output.WriteInt64(SideLeftTotal);
+        output.WriteInt32(SideLeftTotal);
       }
-      if (SideRightTotal != 0L) {
+      if (SideRightTotal != 0) {
         output.WriteRawTag(48);
-        output.WriteInt64(SideRightTotal);
+        output.WriteInt32(SideRightTotal);
       }
-      if (Pot != 0L) {
+      if (Pot != 0) {
         output.WriteRawTag(56);
-        output.WriteInt64(Pot);
+        output.WriteInt32(Pot);
       }
       if (Status != global::Cockatiel.PredictionUpdate.Types.Status.Unspecified) {
         output.WriteRawTag(64);
@@ -22082,14 +22082,14 @@ namespace Cockatiel {
       if (SideRightLabel.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(SideRightLabel);
       }
-      if (SideLeftTotal != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(SideLeftTotal);
+      if (SideLeftTotal != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(SideLeftTotal);
       }
-      if (SideRightTotal != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(SideRightTotal);
+      if (SideRightTotal != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(SideRightTotal);
       }
-      if (Pot != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Pot);
+      if (Pot != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Pot);
       }
       if (Status != global::Cockatiel.PredictionUpdate.Types.Status.Unspecified) {
         size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Status);
@@ -22121,13 +22121,13 @@ namespace Cockatiel {
       if (other.SideRightLabel.Length != 0) {
         SideRightLabel = other.SideRightLabel;
       }
-      if (other.SideLeftTotal != 0L) {
+      if (other.SideLeftTotal != 0) {
         SideLeftTotal = other.SideLeftTotal;
       }
-      if (other.SideRightTotal != 0L) {
+      if (other.SideRightTotal != 0) {
         SideRightTotal = other.SideRightTotal;
       }
-      if (other.Pot != 0L) {
+      if (other.Pot != 0) {
         Pot = other.Pot;
       }
       if (other.Status != global::Cockatiel.PredictionUpdate.Types.Status.Unspecified) {
@@ -22172,15 +22172,15 @@ namespace Cockatiel {
             break;
           }
           case 40: {
-            SideLeftTotal = input.ReadInt64();
+            SideLeftTotal = input.ReadInt32();
             break;
           }
           case 48: {
-            SideRightTotal = input.ReadInt64();
+            SideRightTotal = input.ReadInt32();
             break;
           }
           case 56: {
-            Pot = input.ReadInt64();
+            Pot = input.ReadInt32();
             break;
           }
           case 64: {
@@ -22227,15 +22227,15 @@ namespace Cockatiel {
             break;
           }
           case 40: {
-            SideLeftTotal = input.ReadInt64();
+            SideLeftTotal = input.ReadInt32();
             break;
           }
           case 48: {
-            SideRightTotal = input.ReadInt64();
+            SideRightTotal = input.ReadInt32();
             break;
           }
           case 56: {
-            Pot = input.ReadInt64();
+            Pot = input.ReadInt32();
             break;
           }
           case 64: {
@@ -22370,24 +22370,24 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "vote_counts" field.</summary>
     public const int VoteCountsFieldNumber = 4;
-    private static readonly pb::FieldCodec<long> _repeated_voteCounts_codec
-        = pb::FieldCodec.ForInt64(34);
-    private readonly pbc::RepeatedField<long> voteCounts_ = new pbc::RepeatedField<long>();
+    private static readonly pb::FieldCodec<int> _repeated_voteCounts_codec
+        = pb::FieldCodec.ForInt32(34);
+    private readonly pbc::RepeatedField<int> voteCounts_ = new pbc::RepeatedField<int>();
     /// <summary>
     /// parallel to options
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<long> VoteCounts {
+    public pbc::RepeatedField<int> VoteCounts {
       get { return voteCounts_; }
     }
 
     /// <summary>Field number for the "total_votes" field.</summary>
     public const int TotalVotesFieldNumber = 5;
-    private long totalVotes_;
+    private int totalVotes_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long TotalVotes {
+    public int TotalVotes {
       get { return totalVotes_; }
       set {
         totalVotes_ = value;
@@ -22470,7 +22470,7 @@ namespace Cockatiel {
       if (Prompt.Length != 0) hash ^= Prompt.GetHashCode();
       hash ^= options_.GetHashCode();
       hash ^= voteCounts_.GetHashCode();
-      if (TotalVotes != 0L) hash ^= TotalVotes.GetHashCode();
+      if (TotalVotes != 0) hash ^= TotalVotes.GetHashCode();
       if (Status != global::Cockatiel.PollUpdate.Types.Status.Unspecified) hash ^= Status.GetHashCode();
       if (WinnerIndex != 0) hash ^= WinnerIndex.GetHashCode();
       if (HideCounts != false) hash ^= HideCounts.GetHashCode();
@@ -22502,9 +22502,9 @@ namespace Cockatiel {
       }
       options_.WriteTo(output, _repeated_options_codec);
       voteCounts_.WriteTo(output, _repeated_voteCounts_codec);
-      if (TotalVotes != 0L) {
+      if (TotalVotes != 0) {
         output.WriteRawTag(40);
-        output.WriteInt64(TotalVotes);
+        output.WriteInt32(TotalVotes);
       }
       if (Status != global::Cockatiel.PollUpdate.Types.Status.Unspecified) {
         output.WriteRawTag(48);
@@ -22538,9 +22538,9 @@ namespace Cockatiel {
       }
       options_.WriteTo(ref output, _repeated_options_codec);
       voteCounts_.WriteTo(ref output, _repeated_voteCounts_codec);
-      if (TotalVotes != 0L) {
+      if (TotalVotes != 0) {
         output.WriteRawTag(40);
-        output.WriteInt64(TotalVotes);
+        output.WriteInt32(TotalVotes);
       }
       if (Status != global::Cockatiel.PollUpdate.Types.Status.Unspecified) {
         output.WriteRawTag(48);
@@ -22572,8 +22572,8 @@ namespace Cockatiel {
       }
       size += options_.CalculateSize(_repeated_options_codec);
       size += voteCounts_.CalculateSize(_repeated_voteCounts_codec);
-      if (TotalVotes != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(TotalVotes);
+      if (TotalVotes != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(TotalVotes);
       }
       if (Status != global::Cockatiel.PollUpdate.Types.Status.Unspecified) {
         size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Status);
@@ -22604,7 +22604,7 @@ namespace Cockatiel {
       }
       options_.Add(other.options_);
       voteCounts_.Add(other.voteCounts_);
-      if (other.TotalVotes != 0L) {
+      if (other.TotalVotes != 0) {
         TotalVotes = other.TotalVotes;
       }
       if (other.Status != global::Cockatiel.PollUpdate.Types.Status.Unspecified) {
@@ -22653,7 +22653,7 @@ namespace Cockatiel {
             break;
           }
           case 40: {
-            TotalVotes = input.ReadInt64();
+            TotalVotes = input.ReadInt32();
             break;
           }
           case 48: {
@@ -22705,7 +22705,7 @@ namespace Cockatiel {
             break;
           }
           case 40: {
-            TotalVotes = input.ReadInt64();
+            TotalVotes = input.ReadInt32();
             break;
           }
           case 48: {
@@ -22829,13 +22829,13 @@ namespace Cockatiel {
 
     /// <summary>Field number for the "viewers" field.</summary>
     public const int ViewersFieldNumber = 3;
-    private long viewers_;
+    private int viewers_;
     /// <summary>
     /// current viewer count (0 when offline); Discord = guild member count
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Viewers {
+    public int Viewers {
       get { return viewers_; }
       set {
         viewers_ = value;
@@ -22917,7 +22917,7 @@ namespace Cockatiel {
       int hash = 1;
       if (Platform.Length != 0) hash ^= Platform.GetHashCode();
       if (Channel.Length != 0) hash ^= Channel.GetHashCode();
-      if (Viewers != 0L) hash ^= Viewers.GetHashCode();
+      if (Viewers != 0) hash ^= Viewers.GetHashCode();
       if (IsLive != false) hash ^= IsLive.GetHashCode();
       if (Title.Length != 0) hash ^= Title.GetHashCode();
       if (UpdatedAt != 0L) hash ^= UpdatedAt.GetHashCode();
@@ -22947,9 +22947,9 @@ namespace Cockatiel {
         output.WriteRawTag(18);
         output.WriteString(Channel);
       }
-      if (Viewers != 0L) {
+      if (Viewers != 0) {
         output.WriteRawTag(24);
-        output.WriteInt64(Viewers);
+        output.WriteInt32(Viewers);
       }
       if (IsLive != false) {
         output.WriteRawTag(32);
@@ -22981,9 +22981,9 @@ namespace Cockatiel {
         output.WriteRawTag(18);
         output.WriteString(Channel);
       }
-      if (Viewers != 0L) {
+      if (Viewers != 0) {
         output.WriteRawTag(24);
-        output.WriteInt64(Viewers);
+        output.WriteInt32(Viewers);
       }
       if (IsLive != false) {
         output.WriteRawTag(32);
@@ -23013,8 +23013,8 @@ namespace Cockatiel {
       if (Channel.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Channel);
       }
-      if (Viewers != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Viewers);
+      if (Viewers != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Viewers);
       }
       if (IsLive != false) {
         size += 1 + 1;
@@ -23043,7 +23043,7 @@ namespace Cockatiel {
       if (other.Channel.Length != 0) {
         Channel = other.Channel;
       }
-      if (other.Viewers != 0L) {
+      if (other.Viewers != 0) {
         Viewers = other.Viewers;
       }
       if (other.IsLive != false) {
@@ -23083,7 +23083,7 @@ namespace Cockatiel {
             break;
           }
           case 24: {
-            Viewers = input.ReadInt64();
+            Viewers = input.ReadInt32();
             break;
           }
           case 32: {
@@ -23126,7 +23126,7 @@ namespace Cockatiel {
             break;
           }
           case 24: {
-            Viewers = input.ReadInt64();
+            Viewers = input.ReadInt32();
             break;
           }
           case 32: {

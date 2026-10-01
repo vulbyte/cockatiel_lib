@@ -627,7 +627,7 @@ typedef struct _cockatiel_protobuf_QueryParams {
     /* Human-readable justification, recorded with the action. */
     pb_callback_t reason;
     /* MOD_TIMEOUT / USERDB_TIMEOUT. 0 means the engine's default. */
-    int64_t duration_secs;
+    int32_t duration_secs;
     /* SET_CREDENTIALS: the module whose credentials are being written. */
     pb_callback_t module_name;
     /* TEST_ARCHIVE: groups the inserted rows into one run. */
@@ -703,9 +703,9 @@ typedef struct _cockatiel_protobuf_User {
     bool is_moderator;
     bool is_admin;
     bool is_owner;
-    int64_t score; /* CURRENT (spendable) score */
-    int64_t commendations;
-    int64_t reprimands;
+    int32_t score; /* CURRENT (spendable) score */
+    int32_t commendations;
+    int32_t reprimands;
     pb_size_t channels_count;
     cockatiel_protobuf_ChannelRef channels[4];
     char flags[4096]; /* JSON blob of module-defined metadata */
@@ -713,9 +713,9 @@ typedef struct _cockatiel_protobuf_User {
     int64_t updated_at;
     /* Lifetime score earned (never reduced by spending). Backfilled from `score`
  at migration time; every positive score change also bumps it. */
-    int64_t total_score;
+    int32_t total_score;
     /* How many chat messages this user has sent (a rank factor). */
-    int64_t messages_sent;
+    int32_t messages_sent;
 /* The user's CURRENT rank on the 0-1 scale, computed server-side from
   score, ratings, messages and account age (with configurable decay) and
   returned alongside the rest of the record so callers never make a second
@@ -750,7 +750,7 @@ typedef struct _cockatiel_protobuf_DeleteUserRequest {
 
 typedef struct _cockatiel_protobuf_ScoreRequest {
     pb_callback_t uuid7;
-    int64_t delta; /* signed change; add=+n, remove=-n */
+    int32_t delta; /* signed change; add=+n, remove=-n */
     pb_callback_t reason;
 } cockatiel_protobuf_ScoreRequest;
 
@@ -831,7 +831,7 @@ typedef struct _cockatiel_protobuf_UserValueListRequest {
  lifetime `total_score` is untouched. */
 typedef struct _cockatiel_protobuf_DeductScoreRequest {
     pb_callback_t uuid7;
-    int64_t amount;
+    int32_t amount;
     pb_callback_t reason;
 } cockatiel_protobuf_DeductScoreRequest;
 
@@ -917,9 +917,9 @@ typedef struct _cockatiel_protobuf_PredictionUpdate {
     char prompt[1024];
     char side_left_label[128]; /* default "Yes" */
     char side_right_label[128]; /* default "No" */
-    int64_t side_left_total; /* score bet on the left side */
-    int64_t side_right_total; /* score bet on the right side */
-    int64_t pot;
+    int32_t side_left_total; /* score bet on the left side */
+    int32_t side_right_total; /* score bet on the right side */
+    int32_t pot;
     cockatiel_protobuf_PredictionUpdate_Status status;
     char winner_side[64]; /* "left" | "right" when RESOLVED */
 } cockatiel_protobuf_PredictionUpdate;
@@ -937,8 +937,8 @@ typedef struct _cockatiel_protobuf_PollUpdate {
     pb_size_t options_count;
     char options[6][256]; /* 1..6 options, index 0 = option 1 */
     pb_size_t vote_counts_count;
-    int64_t vote_counts[6]; /* parallel to options */
-    int64_t total_votes;
+    int32_t vote_counts[6]; /* parallel to options */
+    int32_t total_votes;
     cockatiel_protobuf_PollUpdate_Status status;
     int32_t winner_index; /* 0-based option index when CLOSED; -1 if none */
     bool hide_counts; /* if true, counts are concealed while OPEN */
@@ -953,7 +953,7 @@ typedef struct _cockatiel_protobuf_ChannelStats {
    adapters (twitch/kick/youtube/discord). */
     char platform[64]; /* "twitch" | "kick" | "youtube" | "discord" */
     char channel[128]; /* channel name / guild id / video id */
-    int64_t viewers; /* current viewer count (0 when offline); Discord = guild member count */
+    int32_t viewers; /* current viewer count (0 when offline); Discord = guild member count */
     bool is_live; /* whether the channel is currently streaming */
     char title[512]; /* current stream/game title when live, else empty */
     int64_t updated_at; /* unix millis when this was last refreshed */
@@ -1977,7 +1977,7 @@ X(a, CALLBACK, SINGULAR, STRING,   uuid7,            10) \
 X(a, CALLBACK, SINGULAR, STRING,   handle,           11) \
 X(a, CALLBACK, SINGULAR, STRING,   channel_id,       12) \
 X(a, CALLBACK, SINGULAR, STRING,   reason,           13) \
-X(a, STATIC,   SINGULAR, INT64,    duration_secs,    14) \
+X(a, STATIC,   SINGULAR, INT32,    duration_secs,    14) \
 X(a, CALLBACK, SINGULAR, STRING,   module_name,      15) \
 X(a, CALLBACK, SINGULAR, STRING,   batch_uuid,       16) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  actor,            17) \
@@ -2023,15 +2023,15 @@ X(a, STATIC,   SINGULAR, BOOL,     is_sponsor,        3) \
 X(a, STATIC,   SINGULAR, BOOL,     is_moderator,      4) \
 X(a, STATIC,   SINGULAR, BOOL,     is_admin,          5) \
 X(a, STATIC,   SINGULAR, BOOL,     is_owner,          6) \
-X(a, STATIC,   SINGULAR, INT64,    score,             7) \
-X(a, STATIC,   SINGULAR, INT64,    commendations,     8) \
-X(a, STATIC,   SINGULAR, INT64,    reprimands,        9) \
+X(a, STATIC,   SINGULAR, INT32,    score,             7) \
+X(a, STATIC,   SINGULAR, INT32,    commendations,     8) \
+X(a, STATIC,   SINGULAR, INT32,    reprimands,        9) \
 X(a, STATIC,   REPEATED, MESSAGE,  channels,         10) \
 X(a, STATIC,   SINGULAR, STRING,   flags,            11) \
 X(a, STATIC,   SINGULAR, INT64,    created_at,       12) \
 X(a, STATIC,   SINGULAR, INT64,    updated_at,       13) \
-X(a, STATIC,   SINGULAR, INT64,    total_score,      14) \
-X(a, STATIC,   SINGULAR, INT64,    messages_sent,    15) \
+X(a, STATIC,   SINGULAR, INT32,    total_score,      14) \
+X(a, STATIC,   SINGULAR, INT32,    messages_sent,    15) \
 X(a, STATIC,   SINGULAR, FLOAT,    rank,             16)
 #define cockatiel_protobuf_User_CALLBACK NULL
 #define cockatiel_protobuf_User_DEFAULT NULL
@@ -2064,7 +2064,7 @@ X(a, CALLBACK, SINGULAR, STRING,   actor_role,        3)
 
 #define cockatiel_protobuf_ScoreRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   uuid7,             1) \
-X(a, STATIC,   SINGULAR, INT64,    delta,             2) \
+X(a, STATIC,   SINGULAR, INT32,    delta,             2) \
 X(a, CALLBACK, SINGULAR, STRING,   reason,            3)
 #define cockatiel_protobuf_ScoreRequest_CALLBACK pb_default_field_callback
 #define cockatiel_protobuf_ScoreRequest_DEFAULT NULL
@@ -2151,7 +2151,7 @@ X(a, CALLBACK, SINGULAR, STRING,   uuid7,             1)
 
 #define cockatiel_protobuf_DeductScoreRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   uuid7,             1) \
-X(a, STATIC,   SINGULAR, INT64,    amount,            2) \
+X(a, STATIC,   SINGULAR, INT32,    amount,            2) \
 X(a, CALLBACK, SINGULAR, STRING,   reason,            3)
 #define cockatiel_protobuf_DeductScoreRequest_CALLBACK pb_default_field_callback
 #define cockatiel_protobuf_DeductScoreRequest_DEFAULT NULL
@@ -2241,9 +2241,9 @@ X(a, STATIC,   SINGULAR, STRING,   prediction_id,     1) \
 X(a, STATIC,   SINGULAR, STRING,   prompt,            2) \
 X(a, STATIC,   SINGULAR, STRING,   side_left_label,   3) \
 X(a, STATIC,   SINGULAR, STRING,   side_right_label,   4) \
-X(a, STATIC,   SINGULAR, INT64,    side_left_total,   5) \
-X(a, STATIC,   SINGULAR, INT64,    side_right_total,   6) \
-X(a, STATIC,   SINGULAR, INT64,    pot,               7) \
+X(a, STATIC,   SINGULAR, INT32,    side_left_total,   5) \
+X(a, STATIC,   SINGULAR, INT32,    side_right_total,   6) \
+X(a, STATIC,   SINGULAR, INT32,    pot,               7) \
 X(a, STATIC,   SINGULAR, UENUM,    status,            8) \
 X(a, STATIC,   SINGULAR, STRING,   winner_side,       9)
 #define cockatiel_protobuf_PredictionUpdate_CALLBACK NULL
@@ -2253,8 +2253,8 @@ X(a, STATIC,   SINGULAR, STRING,   winner_side,       9)
 X(a, STATIC,   SINGULAR, STRING,   poll_id,           1) \
 X(a, STATIC,   SINGULAR, STRING,   prompt,            2) \
 X(a, STATIC,   REPEATED, STRING,   options,           3) \
-X(a, STATIC,   REPEATED, INT64,    vote_counts,       4) \
-X(a, STATIC,   SINGULAR, INT64,    total_votes,       5) \
+X(a, STATIC,   REPEATED, INT32,    vote_counts,       4) \
+X(a, STATIC,   SINGULAR, INT32,    total_votes,       5) \
 X(a, STATIC,   SINGULAR, UENUM,    status,            6) \
 X(a, STATIC,   SINGULAR, INT32,    winner_index,      7) \
 X(a, STATIC,   SINGULAR, BOOL,     hide_counts,       8)
@@ -2264,7 +2264,7 @@ X(a, STATIC,   SINGULAR, BOOL,     hide_counts,       8)
 #define cockatiel_protobuf_ChannelStats_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   platform,          1) \
 X(a, STATIC,   SINGULAR, STRING,   channel,           2) \
-X(a, STATIC,   SINGULAR, INT64,    viewers,           3) \
+X(a, STATIC,   SINGULAR, INT32,    viewers,           3) \
 X(a, STATIC,   SINGULAR, BOOL,     is_live,           4) \
 X(a, STATIC,   SINGULAR, STRING,   title,             5) \
 X(a, STATIC,   SINGULAR, INT64,    updated_at,        6)
@@ -2565,7 +2565,7 @@ extern const pb_msgdesc_t cockatiel_protobuf_ContainerForEngine_msg;
 #define cockatiel_protobuf_AuthNew_size          514
 #define cockatiel_protobuf_AuthVerify_size       514
 #define cockatiel_protobuf_ChannelRef_size       325
-#define cockatiel_protobuf_ChannelStats_size     733
+#define cockatiel_protobuf_ChannelStats_size     728
 #define cockatiel_protobuf_ConnectionRequestReturn_size 71
 #define cockatiel_protobuf_ConnectionRequest_size 84
 #define cockatiel_protobuf_DatabaseQueryResult_size 20553
@@ -2575,8 +2575,8 @@ extern const pb_msgdesc_t cockatiel_protobuf_ContainerForEngine_msg;
 #define cockatiel_protobuf_MessageAck_size       65
 #define cockatiel_protobuf_ModuleControlResult_size 8198
 #define cockatiel_protobuf_ModuleControl_size    134
-#define cockatiel_protobuf_PollUpdate_size       2731
-#define cockatiel_protobuf_PredictionUpdate_size 1451
+#define cockatiel_protobuf_PollUpdate_size       2696
+#define cockatiel_protobuf_PredictionUpdate_size 1436
 #define cockatiel_protobuf_PromptResponse_size   4165
 #define cockatiel_protobuf_Prompt_size           7834
 #define cockatiel_protobuf_QueryResponse_size    20559
@@ -2585,9 +2585,9 @@ extern const pb_msgdesc_t cockatiel_protobuf_ContainerForEngine_msg;
 #define cockatiel_protobuf_Shutdown_size         514
 #define cockatiel_protobuf_TimelineEvent_size    31325
 #define cockatiel_protobuf_TimelineQueryResult_size 125383
-#define cockatiel_protobuf_UserDbResponse_size   133638
+#define cockatiel_protobuf_UserDbResponse_size   133413
 #define cockatiel_protobuf_UserValueResult_size  4228
-#define cockatiel_protobuf_User_size             5702
+#define cockatiel_protobuf_User_size             5677
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -40371,7 +40371,7 @@ java.lang.String defaultValue) {
      * <code>int64 duration_secs = 14;</code>
      * @return The durationSecs.
      */
-    long getDurationSecs();
+    int getDurationSecs();
 
     /**
      * <pre>
@@ -40912,7 +40912,7 @@ java.lang.String defaultValue) {
     }
 
     public static final int DURATION_SECS_FIELD_NUMBER = 14;
-    private long durationSecs_ = 0L;
+    private int durationSecs_ = 0;
     /**
      * <pre>
      * MOD_TIMEOUT / USERDB_TIMEOUT. 0 means the engine's default.
@@ -40922,7 +40922,7 @@ java.lang.String defaultValue) {
      * @return The durationSecs.
      */
     @java.lang.Override
-    public long getDurationSecs() {
+    public int getDurationSecs() {
       return durationSecs_;
     }
 
@@ -41157,8 +41157,8 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
         com.google.protobuf.GeneratedMessage.writeString(output, 13, reason_);
       }
-      if (durationSecs_ != 0L) {
-        output.writeInt64(14, durationSecs_);
+      if (durationSecs_ != 0) {
+        output.writeInt32(14, durationSecs_);
       }
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(moduleName_)) {
         com.google.protobuf.GeneratedMessage.writeString(output, 15, moduleName_);
@@ -41216,9 +41216,9 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
         size += com.google.protobuf.GeneratedMessage.computeStringSize(13, reason_);
       }
-      if (durationSecs_ != 0L) {
+      if (durationSecs_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(14, durationSecs_);
+          .computeInt32Size(14, durationSecs_);
       }
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(moduleName_)) {
         size += com.google.protobuf.GeneratedMessage.computeStringSize(15, moduleName_);
@@ -41498,7 +41498,7 @@ java.lang.String defaultValue) {
         handle_ = "";
         channelId_ = "";
         reason_ = "";
-        durationSecs_ = 0L;
+        durationSecs_ = 0;
         moduleName_ = "";
         batchUuid_ = "";
         actor_ = null;
@@ -41662,7 +41662,7 @@ java.lang.String defaultValue) {
           bitField0_ |= 0x00000800;
           onChanged();
         }
-        if (other.getDurationSecs() != 0L) {
+        if (other.getDurationSecs() != 0) {
           setDurationSecs(other.getDurationSecs());
         }
         if (!other.getModuleName().isEmpty()) {
@@ -41770,7 +41770,7 @@ java.lang.String defaultValue) {
                 break;
               } // case 106
               case 112: {
-                durationSecs_ = input.readInt64();
+                durationSecs_ = input.readInt32();
                 bitField0_ |= 0x00001000;
                 break;
               } // case 112
@@ -42597,7 +42597,7 @@ java.lang.String defaultValue) {
         return this;
       }
 
-      private long durationSecs_ ;
+      private int durationSecs_ ;
       /**
        * <pre>
        * MOD_TIMEOUT / USERDB_TIMEOUT. 0 means the engine's default.
@@ -42607,7 +42607,7 @@ java.lang.String defaultValue) {
        * @return The durationSecs.
        */
       @java.lang.Override
-      public long getDurationSecs() {
+      public int getDurationSecs() {
         return durationSecs_;
       }
       /**
@@ -42619,7 +42619,7 @@ java.lang.String defaultValue) {
        * @param value The durationSecs to set.
        * @return This builder for chaining.
        */
-      public Builder setDurationSecs(long value) {
+      public Builder setDurationSecs(int value) {
 
         durationSecs_ = value;
         bitField0_ |= 0x00001000;
@@ -42636,7 +42636,7 @@ java.lang.String defaultValue) {
        */
       public Builder clearDurationSecs() {
         bitField0_ = (bitField0_ & ~0x00001000);
-        durationSecs_ = 0L;
+        durationSecs_ = 0;
         onChanged();
         return this;
       }
@@ -46735,19 +46735,19 @@ java.lang.String defaultValue) {
      * <code>int64 score = 7;</code>
      * @return The score.
      */
-    long getScore();
+    int getScore();
 
     /**
      * <code>int64 commendations = 8;</code>
      * @return The commendations.
      */
-    long getCommendations();
+    int getCommendations();
 
     /**
      * <code>int64 reprimands = 9;</code>
      * @return The reprimands.
      */
-    long getReprimands();
+    int getReprimands();
 
     /**
      * <code>repeated .cockatiel.ChannelRef channels = 10;</code>
@@ -46814,7 +46814,7 @@ java.lang.String defaultValue) {
      * <code>int64 total_score = 14;</code>
      * @return The totalScore.
      */
-    long getTotalScore();
+    int getTotalScore();
 
     /**
      * <pre>
@@ -46824,7 +46824,7 @@ java.lang.String defaultValue) {
      * <code>int64 messages_sent = 15;</code>
      * @return The messagesSent.
      */
-    long getMessagesSent();
+    int getMessagesSent();
 
     /**
      * <pre>
@@ -47029,7 +47029,7 @@ java.lang.String defaultValue) {
     }
 
     public static final int SCORE_FIELD_NUMBER = 7;
-    private long score_ = 0L;
+    private int score_ = 0;
     /**
      * <pre>
      * CURRENT (spendable) score
@@ -47039,29 +47039,29 @@ java.lang.String defaultValue) {
      * @return The score.
      */
     @java.lang.Override
-    public long getScore() {
+    public int getScore() {
       return score_;
     }
 
     public static final int COMMENDATIONS_FIELD_NUMBER = 8;
-    private long commendations_ = 0L;
+    private int commendations_ = 0;
     /**
      * <code>int64 commendations = 8;</code>
      * @return The commendations.
      */
     @java.lang.Override
-    public long getCommendations() {
+    public int getCommendations() {
       return commendations_;
     }
 
     public static final int REPRIMANDS_FIELD_NUMBER = 9;
-    private long reprimands_ = 0L;
+    private int reprimands_ = 0;
     /**
      * <code>int64 reprimands = 9;</code>
      * @return The reprimands.
      */
     @java.lang.Override
-    public long getReprimands() {
+    public int getReprimands() {
       return reprimands_;
     }
 
@@ -47176,7 +47176,7 @@ java.lang.String defaultValue) {
     }
 
     public static final int TOTAL_SCORE_FIELD_NUMBER = 14;
-    private long totalScore_ = 0L;
+    private int totalScore_ = 0;
     /**
      * <pre>
      * Lifetime score earned (never reduced by spending). Backfilled from `score`
@@ -47187,12 +47187,12 @@ java.lang.String defaultValue) {
      * @return The totalScore.
      */
     @java.lang.Override
-    public long getTotalScore() {
+    public int getTotalScore() {
       return totalScore_;
     }
 
     public static final int MESSAGES_SENT_FIELD_NUMBER = 15;
-    private long messagesSent_ = 0L;
+    private int messagesSent_ = 0;
     /**
      * <pre>
      * How many chat messages this user has sent (a rank factor).
@@ -47202,7 +47202,7 @@ java.lang.String defaultValue) {
      * @return The messagesSent.
      */
     @java.lang.Override
-    public long getMessagesSent() {
+    public int getMessagesSent() {
       return messagesSent_;
     }
 
@@ -47257,14 +47257,14 @@ java.lang.String defaultValue) {
       if (isOwner_ != false) {
         output.writeBool(6, isOwner_);
       }
-      if (score_ != 0L) {
-        output.writeInt64(7, score_);
+      if (score_ != 0) {
+        output.writeInt32(7, score_);
       }
-      if (commendations_ != 0L) {
-        output.writeInt64(8, commendations_);
+      if (commendations_ != 0) {
+        output.writeInt32(8, commendations_);
       }
-      if (reprimands_ != 0L) {
-        output.writeInt64(9, reprimands_);
+      if (reprimands_ != 0) {
+        output.writeInt32(9, reprimands_);
       }
       for (int i = 0; i < channels_.size(); i++) {
         output.writeMessage(10, channels_.get(i));
@@ -47278,11 +47278,11 @@ java.lang.String defaultValue) {
       if (updatedAt_ != 0L) {
         output.writeInt64(13, updatedAt_);
       }
-      if (totalScore_ != 0L) {
-        output.writeInt64(14, totalScore_);
+      if (totalScore_ != 0) {
+        output.writeInt32(14, totalScore_);
       }
-      if (messagesSent_ != 0L) {
-        output.writeInt64(15, messagesSent_);
+      if (messagesSent_ != 0) {
+        output.writeInt32(15, messagesSent_);
       }
       if (rank_ != 0F) {
         output.writeFloat(16, rank_);
@@ -47313,17 +47313,17 @@ java.lang.String defaultValue) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(6, isOwner_);
       }
-      if (score_ != 0L) {
+      if (score_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(7, score_);
+          .computeInt32Size(7, score_);
       }
-      if (commendations_ != 0L) {
+      if (commendations_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(8, commendations_);
+          .computeInt32Size(8, commendations_);
       }
-      if (reprimands_ != 0L) {
+      if (reprimands_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(9, reprimands_);
+          .computeInt32Size(9, reprimands_);
       }
 
           {
@@ -47345,13 +47345,13 @@ java.lang.String defaultValue) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(13, updatedAt_);
       }
-      if (totalScore_ != 0L) {
+      if (totalScore_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(14, totalScore_);
+          .computeInt32Size(14, totalScore_);
       }
-      if (messagesSent_ != 0L) {
+      if (messagesSent_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(15, messagesSent_);
+          .computeInt32Size(15, messagesSent_);
       }
       if (rank_ != 0F) {
         size += com.google.protobuf.CodedOutputStream
@@ -47612,9 +47612,9 @@ java.lang.String defaultValue) {
         isModerator_ = false;
         isAdmin_ = false;
         isOwner_ = false;
-        score_ = 0L;
-        commendations_ = 0L;
-        reprimands_ = 0L;
+        score_ = 0;
+        commendations_ = 0;
+        reprimands_ = 0;
         if (channelsBuilder_ == null) {
           channels_ = java.util.Collections.emptyList();
         } else {
@@ -47625,8 +47625,8 @@ java.lang.String defaultValue) {
         flags_ = "";
         createdAt_ = 0L;
         updatedAt_ = 0L;
-        totalScore_ = 0L;
-        messagesSent_ = 0L;
+        totalScore_ = 0;
+        messagesSent_ = 0;
         rank_ = 0F;
         return this;
       }
@@ -47755,13 +47755,13 @@ java.lang.String defaultValue) {
         if (other.getIsOwner() != false) {
           setIsOwner(other.getIsOwner());
         }
-        if (other.getScore() != 0L) {
+        if (other.getScore() != 0) {
           setScore(other.getScore());
         }
-        if (other.getCommendations() != 0L) {
+        if (other.getCommendations() != 0) {
           setCommendations(other.getCommendations());
         }
-        if (other.getReprimands() != 0L) {
+        if (other.getReprimands() != 0) {
           setReprimands(other.getReprimands());
         }
         if (channelsBuilder_ == null) {
@@ -47801,10 +47801,10 @@ java.lang.String defaultValue) {
         if (other.getUpdatedAt() != 0L) {
           setUpdatedAt(other.getUpdatedAt());
         }
-        if (other.getTotalScore() != 0L) {
+        if (other.getTotalScore() != 0) {
           setTotalScore(other.getTotalScore());
         }
-        if (other.getMessagesSent() != 0L) {
+        if (other.getMessagesSent() != 0) {
           setMessagesSent(other.getMessagesSent());
         }
         if (java.lang.Float.floatToRawIntBits(other.getRank()) != 0) {
@@ -47867,17 +47867,17 @@ java.lang.String defaultValue) {
                 break;
               } // case 48
               case 56: {
-                score_ = input.readInt64();
+                score_ = input.readInt32();
                 bitField0_ |= 0x00000040;
                 break;
               } // case 56
               case 64: {
-                commendations_ = input.readInt64();
+                commendations_ = input.readInt32();
                 bitField0_ |= 0x00000080;
                 break;
               } // case 64
               case 72: {
-                reprimands_ = input.readInt64();
+                reprimands_ = input.readInt32();
                 bitField0_ |= 0x00000100;
                 break;
               } // case 72
@@ -47910,12 +47910,12 @@ java.lang.String defaultValue) {
                 break;
               } // case 104
               case 112: {
-                totalScore_ = input.readInt64();
+                totalScore_ = input.readInt32();
                 bitField0_ |= 0x00002000;
                 break;
               } // case 112
               case 120: {
-                messagesSent_ = input.readInt64();
+                messagesSent_ = input.readInt32();
                 bitField0_ |= 0x00004000;
                 break;
               } // case 120
@@ -48253,7 +48253,7 @@ java.lang.String defaultValue) {
         return this;
       }
 
-      private long score_ ;
+      private int score_ ;
       /**
        * <pre>
        * CURRENT (spendable) score
@@ -48263,7 +48263,7 @@ java.lang.String defaultValue) {
        * @return The score.
        */
       @java.lang.Override
-      public long getScore() {
+      public int getScore() {
         return score_;
       }
       /**
@@ -48275,7 +48275,7 @@ java.lang.String defaultValue) {
        * @param value The score to set.
        * @return This builder for chaining.
        */
-      public Builder setScore(long value) {
+      public Builder setScore(int value) {
 
         score_ = value;
         bitField0_ |= 0x00000040;
@@ -48292,18 +48292,18 @@ java.lang.String defaultValue) {
        */
       public Builder clearScore() {
         bitField0_ = (bitField0_ & ~0x00000040);
-        score_ = 0L;
+        score_ = 0;
         onChanged();
         return this;
       }
 
-      private long commendations_ ;
+      private int commendations_ ;
       /**
        * <code>int64 commendations = 8;</code>
        * @return The commendations.
        */
       @java.lang.Override
-      public long getCommendations() {
+      public int getCommendations() {
         return commendations_;
       }
       /**
@@ -48311,7 +48311,7 @@ java.lang.String defaultValue) {
        * @param value The commendations to set.
        * @return This builder for chaining.
        */
-      public Builder setCommendations(long value) {
+      public Builder setCommendations(int value) {
 
         commendations_ = value;
         bitField0_ |= 0x00000080;
@@ -48324,18 +48324,18 @@ java.lang.String defaultValue) {
        */
       public Builder clearCommendations() {
         bitField0_ = (bitField0_ & ~0x00000080);
-        commendations_ = 0L;
+        commendations_ = 0;
         onChanged();
         return this;
       }
 
-      private long reprimands_ ;
+      private int reprimands_ ;
       /**
        * <code>int64 reprimands = 9;</code>
        * @return The reprimands.
        */
       @java.lang.Override
-      public long getReprimands() {
+      public int getReprimands() {
         return reprimands_;
       }
       /**
@@ -48343,7 +48343,7 @@ java.lang.String defaultValue) {
        * @param value The reprimands to set.
        * @return This builder for chaining.
        */
-      public Builder setReprimands(long value) {
+      public Builder setReprimands(int value) {
 
         reprimands_ = value;
         bitField0_ |= 0x00000100;
@@ -48356,7 +48356,7 @@ java.lang.String defaultValue) {
        */
       public Builder clearReprimands() {
         bitField0_ = (bitField0_ & ~0x00000100);
-        reprimands_ = 0L;
+        reprimands_ = 0;
         onChanged();
         return this;
       }
@@ -48757,7 +48757,7 @@ java.lang.String defaultValue) {
         return this;
       }
 
-      private long totalScore_ ;
+      private int totalScore_ ;
       /**
        * <pre>
        * Lifetime score earned (never reduced by spending). Backfilled from `score`
@@ -48768,7 +48768,7 @@ java.lang.String defaultValue) {
        * @return The totalScore.
        */
       @java.lang.Override
-      public long getTotalScore() {
+      public int getTotalScore() {
         return totalScore_;
       }
       /**
@@ -48781,7 +48781,7 @@ java.lang.String defaultValue) {
        * @param value The totalScore to set.
        * @return This builder for chaining.
        */
-      public Builder setTotalScore(long value) {
+      public Builder setTotalScore(int value) {
 
         totalScore_ = value;
         bitField0_ |= 0x00002000;
@@ -48799,12 +48799,12 @@ java.lang.String defaultValue) {
        */
       public Builder clearTotalScore() {
         bitField0_ = (bitField0_ & ~0x00002000);
-        totalScore_ = 0L;
+        totalScore_ = 0;
         onChanged();
         return this;
       }
 
-      private long messagesSent_ ;
+      private int messagesSent_ ;
       /**
        * <pre>
        * How many chat messages this user has sent (a rank factor).
@@ -48814,7 +48814,7 @@ java.lang.String defaultValue) {
        * @return The messagesSent.
        */
       @java.lang.Override
-      public long getMessagesSent() {
+      public int getMessagesSent() {
         return messagesSent_;
       }
       /**
@@ -48826,7 +48826,7 @@ java.lang.String defaultValue) {
        * @param value The messagesSent to set.
        * @return This builder for chaining.
        */
-      public Builder setMessagesSent(long value) {
+      public Builder setMessagesSent(int value) {
 
         messagesSent_ = value;
         bitField0_ |= 0x00004000;
@@ -48843,7 +48843,7 @@ java.lang.String defaultValue) {
        */
       public Builder clearMessagesSent() {
         bitField0_ = (bitField0_ & ~0x00004000);
-        messagesSent_ = 0L;
+        messagesSent_ = 0;
         onChanged();
         return this;
       }
@@ -52193,7 +52193,7 @@ java.lang.String defaultValue) {
      * <code>int64 delta = 2;</code>
      * @return The delta.
      */
-    long getDelta();
+    int getDelta();
 
     /**
      * <code>string reason = 3;</code>
@@ -52291,7 +52291,7 @@ java.lang.String defaultValue) {
     }
 
     public static final int DELTA_FIELD_NUMBER = 2;
-    private long delta_ = 0L;
+    private int delta_ = 0;
     /**
      * <pre>
      * signed change; add=+n, remove=-n
@@ -52301,7 +52301,7 @@ java.lang.String defaultValue) {
      * @return The delta.
      */
     @java.lang.Override
-    public long getDelta() {
+    public int getDelta() {
       return delta_;
     }
 
@@ -52361,8 +52361,8 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(uuid7_)) {
         com.google.protobuf.GeneratedMessage.writeString(output, 1, uuid7_);
       }
-      if (delta_ != 0L) {
-        output.writeInt64(2, delta_);
+      if (delta_ != 0) {
+        output.writeInt32(2, delta_);
       }
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
         com.google.protobuf.GeneratedMessage.writeString(output, 3, reason_);
@@ -52374,9 +52374,9 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(uuid7_)) {
         size += com.google.protobuf.GeneratedMessage.computeStringSize(1, uuid7_);
       }
-      if (delta_ != 0L) {
+      if (delta_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(2, delta_);
+          .computeInt32Size(2, delta_);
       }
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
         size += com.google.protobuf.GeneratedMessage.computeStringSize(3, reason_);
@@ -52561,7 +52561,7 @@ java.lang.String defaultValue) {
         super.clear();
         bitField0_ = 0;
         uuid7_ = "";
-        delta_ = 0L;
+        delta_ = 0;
         reason_ = "";
         return this;
       }
@@ -52624,7 +52624,7 @@ java.lang.String defaultValue) {
           bitField0_ |= 0x00000001;
           onChanged();
         }
-        if (other.getDelta() != 0L) {
+        if (other.getDelta() != 0) {
           setDelta(other.getDelta());
         }
         if (!other.getReason().isEmpty()) {
@@ -52664,7 +52664,7 @@ java.lang.String defaultValue) {
                 break;
               } // case 10
               case 16: {
-                delta_ = input.readInt64();
+                delta_ = input.readInt32();
                 bitField0_ |= 0x00000002;
                 break;
               } // case 16
@@ -52762,7 +52762,7 @@ java.lang.String defaultValue) {
         return this;
       }
 
-      private long delta_ ;
+      private int delta_ ;
       /**
        * <pre>
        * signed change; add=+n, remove=-n
@@ -52772,7 +52772,7 @@ java.lang.String defaultValue) {
        * @return The delta.
        */
       @java.lang.Override
-      public long getDelta() {
+      public int getDelta() {
         return delta_;
       }
       /**
@@ -52784,7 +52784,7 @@ java.lang.String defaultValue) {
        * @param value The delta to set.
        * @return This builder for chaining.
        */
-      public Builder setDelta(long value) {
+      public Builder setDelta(int value) {
 
         delta_ = value;
         bitField0_ |= 0x00000002;
@@ -52801,7 +52801,7 @@ java.lang.String defaultValue) {
        */
       public Builder clearDelta() {
         bitField0_ = (bitField0_ & ~0x00000002);
-        delta_ = 0L;
+        delta_ = 0;
         onChanged();
         return this;
       }
@@ -61991,7 +61991,7 @@ java.lang.String defaultValue) {
      * <code>int64 amount = 2;</code>
      * @return The amount.
      */
-    long getAmount();
+    int getAmount();
 
     /**
      * <code>string reason = 3;</code>
@@ -62095,13 +62095,13 @@ java.lang.String defaultValue) {
     }
 
     public static final int AMOUNT_FIELD_NUMBER = 2;
-    private long amount_ = 0L;
+    private int amount_ = 0;
     /**
      * <code>int64 amount = 2;</code>
      * @return The amount.
      */
     @java.lang.Override
-    public long getAmount() {
+    public int getAmount() {
       return amount_;
     }
 
@@ -62161,8 +62161,8 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(uuid7_)) {
         com.google.protobuf.GeneratedMessage.writeString(output, 1, uuid7_);
       }
-      if (amount_ != 0L) {
-        output.writeInt64(2, amount_);
+      if (amount_ != 0) {
+        output.writeInt32(2, amount_);
       }
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
         com.google.protobuf.GeneratedMessage.writeString(output, 3, reason_);
@@ -62174,9 +62174,9 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(uuid7_)) {
         size += com.google.protobuf.GeneratedMessage.computeStringSize(1, uuid7_);
       }
-      if (amount_ != 0L) {
+      if (amount_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(2, amount_);
+          .computeInt32Size(2, amount_);
       }
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
         size += com.google.protobuf.GeneratedMessage.computeStringSize(3, reason_);
@@ -62367,7 +62367,7 @@ java.lang.String defaultValue) {
         super.clear();
         bitField0_ = 0;
         uuid7_ = "";
-        amount_ = 0L;
+        amount_ = 0;
         reason_ = "";
         return this;
       }
@@ -62430,7 +62430,7 @@ java.lang.String defaultValue) {
           bitField0_ |= 0x00000001;
           onChanged();
         }
-        if (other.getAmount() != 0L) {
+        if (other.getAmount() != 0) {
           setAmount(other.getAmount());
         }
         if (!other.getReason().isEmpty()) {
@@ -62470,7 +62470,7 @@ java.lang.String defaultValue) {
                 break;
               } // case 10
               case 16: {
-                amount_ = input.readInt64();
+                amount_ = input.readInt32();
                 bitField0_ |= 0x00000002;
                 break;
               } // case 16
@@ -62568,13 +62568,13 @@ java.lang.String defaultValue) {
         return this;
       }
 
-      private long amount_ ;
+      private int amount_ ;
       /**
        * <code>int64 amount = 2;</code>
        * @return The amount.
        */
       @java.lang.Override
-      public long getAmount() {
+      public int getAmount() {
         return amount_;
       }
       /**
@@ -62582,7 +62582,7 @@ java.lang.String defaultValue) {
        * @param value The amount to set.
        * @return This builder for chaining.
        */
-      public Builder setAmount(long value) {
+      public Builder setAmount(int value) {
 
         amount_ = value;
         bitField0_ |= 0x00000002;
@@ -62595,7 +62595,7 @@ java.lang.String defaultValue) {
        */
       public Builder clearAmount() {
         bitField0_ = (bitField0_ & ~0x00000002);
-        amount_ = 0L;
+        amount_ = 0;
         onChanged();
         return this;
       }
@@ -72786,7 +72786,7 @@ java.lang.String defaultValue) {
      * <code>int64 side_left_total = 5;</code>
      * @return The sideLeftTotal.
      */
-    long getSideLeftTotal();
+    int getSideLeftTotal();
 
     /**
      * <pre>
@@ -72796,13 +72796,13 @@ java.lang.String defaultValue) {
      * <code>int64 side_right_total = 6;</code>
      * @return The sideRightTotal.
      */
-    long getSideRightTotal();
+    int getSideRightTotal();
 
     /**
      * <code>int64 pot = 7;</code>
      * @return The pot.
      */
-    long getPot();
+    int getPot();
 
     /**
      * <code>.cockatiel.PredictionUpdate.Status status = 8;</code>
@@ -73207,7 +73207,7 @@ java.lang.String defaultValue) {
     }
 
     public static final int SIDE_LEFT_TOTAL_FIELD_NUMBER = 5;
-    private long sideLeftTotal_ = 0L;
+    private int sideLeftTotal_ = 0;
     /**
      * <pre>
      * score bet on the left side
@@ -73217,12 +73217,12 @@ java.lang.String defaultValue) {
      * @return The sideLeftTotal.
      */
     @java.lang.Override
-    public long getSideLeftTotal() {
+    public int getSideLeftTotal() {
       return sideLeftTotal_;
     }
 
     public static final int SIDE_RIGHT_TOTAL_FIELD_NUMBER = 6;
-    private long sideRightTotal_ = 0L;
+    private int sideRightTotal_ = 0;
     /**
      * <pre>
      * score bet on the right side
@@ -73232,18 +73232,18 @@ java.lang.String defaultValue) {
      * @return The sideRightTotal.
      */
     @java.lang.Override
-    public long getSideRightTotal() {
+    public int getSideRightTotal() {
       return sideRightTotal_;
     }
 
     public static final int POT_FIELD_NUMBER = 7;
-    private long pot_ = 0L;
+    private int pot_ = 0;
     /**
      * <code>int64 pot = 7;</code>
      * @return The pot.
      */
     @java.lang.Override
-    public long getPot() {
+    public int getPot() {
       return pot_;
     }
 
@@ -73338,14 +73338,14 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sideRightLabel_)) {
         com.google.protobuf.GeneratedMessage.writeString(output, 4, sideRightLabel_);
       }
-      if (sideLeftTotal_ != 0L) {
-        output.writeInt64(5, sideLeftTotal_);
+      if (sideLeftTotal_ != 0) {
+        output.writeInt32(5, sideLeftTotal_);
       }
-      if (sideRightTotal_ != 0L) {
-        output.writeInt64(6, sideRightTotal_);
+      if (sideRightTotal_ != 0) {
+        output.writeInt32(6, sideRightTotal_);
       }
-      if (pot_ != 0L) {
-        output.writeInt64(7, pot_);
+      if (pot_ != 0) {
+        output.writeInt32(7, pot_);
       }
       if (status_ != cockatiel.Cockatiel.PredictionUpdate.Status.STATUS_UNSPECIFIED.getNumber()) {
         output.writeEnum(8, status_);
@@ -73369,17 +73369,17 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sideRightLabel_)) {
         size += com.google.protobuf.GeneratedMessage.computeStringSize(4, sideRightLabel_);
       }
-      if (sideLeftTotal_ != 0L) {
+      if (sideLeftTotal_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(5, sideLeftTotal_);
+          .computeInt32Size(5, sideLeftTotal_);
       }
-      if (sideRightTotal_ != 0L) {
+      if (sideRightTotal_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(6, sideRightTotal_);
+          .computeInt32Size(6, sideRightTotal_);
       }
-      if (pot_ != 0L) {
+      if (pot_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(7, pot_);
+          .computeInt32Size(7, pot_);
       }
       if (status_ != cockatiel.Cockatiel.PredictionUpdate.Status.STATUS_UNSPECIFIED.getNumber()) {
         size += com.google.protobuf.CodedOutputStream
@@ -73596,9 +73596,9 @@ java.lang.String defaultValue) {
         prompt_ = "";
         sideLeftLabel_ = "";
         sideRightLabel_ = "";
-        sideLeftTotal_ = 0L;
-        sideRightTotal_ = 0L;
-        pot_ = 0L;
+        sideLeftTotal_ = 0;
+        sideRightTotal_ = 0;
+        pot_ = 0;
         status_ = 0;
         winnerSide_ = "";
         return this;
@@ -73695,13 +73695,13 @@ java.lang.String defaultValue) {
           bitField0_ |= 0x00000008;
           onChanged();
         }
-        if (other.getSideLeftTotal() != 0L) {
+        if (other.getSideLeftTotal() != 0) {
           setSideLeftTotal(other.getSideLeftTotal());
         }
-        if (other.getSideRightTotal() != 0L) {
+        if (other.getSideRightTotal() != 0) {
           setSideRightTotal(other.getSideRightTotal());
         }
-        if (other.getPot() != 0L) {
+        if (other.getPot() != 0) {
           setPot(other.getPot());
         }
         if (other.status_ != 0) {
@@ -73759,17 +73759,17 @@ java.lang.String defaultValue) {
                 break;
               } // case 34
               case 40: {
-                sideLeftTotal_ = input.readInt64();
+                sideLeftTotal_ = input.readInt32();
                 bitField0_ |= 0x00000010;
                 break;
               } // case 40
               case 48: {
-                sideRightTotal_ = input.readInt64();
+                sideRightTotal_ = input.readInt32();
                 bitField0_ |= 0x00000020;
                 break;
               } // case 48
               case 56: {
-                pot_ = input.readInt64();
+                pot_ = input.readInt32();
                 bitField0_ |= 0x00000040;
                 break;
               } // case 56
@@ -74168,7 +74168,7 @@ java.lang.String defaultValue) {
         return this;
       }
 
-      private long sideLeftTotal_ ;
+      private int sideLeftTotal_ ;
       /**
        * <pre>
        * score bet on the left side
@@ -74178,7 +74178,7 @@ java.lang.String defaultValue) {
        * @return The sideLeftTotal.
        */
       @java.lang.Override
-      public long getSideLeftTotal() {
+      public int getSideLeftTotal() {
         return sideLeftTotal_;
       }
       /**
@@ -74190,7 +74190,7 @@ java.lang.String defaultValue) {
        * @param value The sideLeftTotal to set.
        * @return This builder for chaining.
        */
-      public Builder setSideLeftTotal(long value) {
+      public Builder setSideLeftTotal(int value) {
 
         sideLeftTotal_ = value;
         bitField0_ |= 0x00000010;
@@ -74207,12 +74207,12 @@ java.lang.String defaultValue) {
        */
       public Builder clearSideLeftTotal() {
         bitField0_ = (bitField0_ & ~0x00000010);
-        sideLeftTotal_ = 0L;
+        sideLeftTotal_ = 0;
         onChanged();
         return this;
       }
 
-      private long sideRightTotal_ ;
+      private int sideRightTotal_ ;
       /**
        * <pre>
        * score bet on the right side
@@ -74222,7 +74222,7 @@ java.lang.String defaultValue) {
        * @return The sideRightTotal.
        */
       @java.lang.Override
-      public long getSideRightTotal() {
+      public int getSideRightTotal() {
         return sideRightTotal_;
       }
       /**
@@ -74234,7 +74234,7 @@ java.lang.String defaultValue) {
        * @param value The sideRightTotal to set.
        * @return This builder for chaining.
        */
-      public Builder setSideRightTotal(long value) {
+      public Builder setSideRightTotal(int value) {
 
         sideRightTotal_ = value;
         bitField0_ |= 0x00000020;
@@ -74251,18 +74251,18 @@ java.lang.String defaultValue) {
        */
       public Builder clearSideRightTotal() {
         bitField0_ = (bitField0_ & ~0x00000020);
-        sideRightTotal_ = 0L;
+        sideRightTotal_ = 0;
         onChanged();
         return this;
       }
 
-      private long pot_ ;
+      private int pot_ ;
       /**
        * <code>int64 pot = 7;</code>
        * @return The pot.
        */
       @java.lang.Override
-      public long getPot() {
+      public int getPot() {
         return pot_;
       }
       /**
@@ -74270,7 +74270,7 @@ java.lang.String defaultValue) {
        * @param value The pot to set.
        * @return This builder for chaining.
        */
-      public Builder setPot(long value) {
+      public Builder setPot(int value) {
 
         pot_ = value;
         bitField0_ |= 0x00000040;
@@ -74283,7 +74283,7 @@ java.lang.String defaultValue) {
        */
       public Builder clearPot() {
         bitField0_ = (bitField0_ & ~0x00000040);
-        pot_ = 0L;
+        pot_ = 0;
         onChanged();
         return this;
       }
@@ -74582,7 +74582,7 @@ java.lang.String defaultValue) {
      * <code>repeated int64 vote_counts = 4;</code>
      * @return A list containing the voteCounts.
      */
-    java.util.List<java.lang.Long> getVoteCountsList();
+    java.util.List<java.lang.Integer> getVoteCountsList();
     /**
      * <pre>
      * parallel to options
@@ -74601,13 +74601,13 @@ java.lang.String defaultValue) {
      * @param index The index of the element to return.
      * @return The voteCounts at the given index.
      */
-    long getVoteCounts(int index);
+    int getVoteCounts(int index);
 
     /**
      * <code>int64 total_votes = 5;</code>
      * @return The totalVotes.
      */
-    long getTotalVotes();
+    int getTotalVotes();
 
     /**
      * <code>.cockatiel.PollUpdate.Status status = 6;</code>
@@ -74666,7 +74666,7 @@ java.lang.String defaultValue) {
       prompt_ = "";
       options_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
-      voteCounts_ = emptyLongList();
+      voteCounts_ = emptyIntList();
       status_ = 0;
     }
 
@@ -74969,8 +74969,8 @@ java.lang.String defaultValue) {
 
     public static final int VOTE_COUNTS_FIELD_NUMBER = 4;
     @SuppressWarnings("serial")
-    private com.google.protobuf.Internal.LongList voteCounts_ =
-        emptyLongList();
+    private com.google.protobuf.Internal.IntList voteCounts_ =
+        emptyIntList();
     /**
      * <pre>
      * parallel to options
@@ -74980,7 +74980,7 @@ java.lang.String defaultValue) {
      * @return A list containing the voteCounts.
      */
     @java.lang.Override
-    public java.util.List<java.lang.Long>
+    public java.util.List<java.lang.Integer>
         getVoteCountsList() {
       return voteCounts_;
     }
@@ -75004,19 +75004,19 @@ java.lang.String defaultValue) {
      * @param index The index of the element to return.
      * @return The voteCounts at the given index.
      */
-    public long getVoteCounts(int index) {
+    public int getVoteCounts(int index) {
       return voteCounts_.getLong(index);
     }
     private int voteCountsMemoizedSerializedSize = -1;
 
     public static final int TOTAL_VOTES_FIELD_NUMBER = 5;
-    private long totalVotes_ = 0L;
+    private int totalVotes_ = 0;
     /**
      * <code>int64 total_votes = 5;</code>
      * @return The totalVotes.
      */
     @java.lang.Override
-    public long getTotalVotes() {
+    public int getTotalVotes() {
       return totalVotes_;
     }
 
@@ -75097,10 +75097,10 @@ java.lang.String defaultValue) {
         output.writeUInt32NoTag(voteCountsMemoizedSerializedSize);
       }
       for (int i = 0; i < voteCounts_.size(); i++) {
-        output.writeInt64NoTag(voteCounts_.getLong(i));
+        output.writeInt32NoTag(voteCounts_.getInt(i));
       }
-      if (totalVotes_ != 0L) {
-        output.writeInt64(5, totalVotes_);
+      if (totalVotes_ != 0) {
+        output.writeInt32(5, totalVotes_);
       }
       if (status_ != cockatiel.Cockatiel.PollUpdate.Status.STATUS_UNSPECIFIED.getNumber()) {
         output.writeEnum(6, status_);
@@ -75133,7 +75133,7 @@ java.lang.String defaultValue) {
         int dataSize = 0;
         for (int i = 0; i < voteCounts_.size(); i++) {
           dataSize += com.google.protobuf.CodedOutputStream
-            .computeInt64SizeNoTag(voteCounts_.getLong(i));
+            .computeInt32SizeNoTag(voteCounts_.getInt(i));
         }
         size += dataSize;
         if (!getVoteCountsList().isEmpty()) {
@@ -75143,9 +75143,9 @@ java.lang.String defaultValue) {
         }
         voteCountsMemoizedSerializedSize = dataSize;
       }
-      if (totalVotes_ != 0L) {
+      if (totalVotes_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(5, totalVotes_);
+          .computeInt32Size(5, totalVotes_);
       }
       if (status_ != cockatiel.Cockatiel.PollUpdate.Status.STATUS_UNSPECIFIED.getNumber()) {
         size += com.google.protobuf.CodedOutputStream
@@ -75366,8 +75366,8 @@ java.lang.String defaultValue) {
         prompt_ = "";
         options_ =
             com.google.protobuf.LazyStringArrayList.emptyList();
-        voteCounts_ = emptyLongList();
-        totalVotes_ = 0L;
+        voteCounts_ = emptyIntList();
+        totalVotes_ = 0;
         status_ = 0;
         winnerIndex_ = 0;
         hideCounts_ = false;
@@ -75475,7 +75475,7 @@ java.lang.String defaultValue) {
           }
           onChanged();
         }
-        if (other.getTotalVotes() != 0L) {
+        if (other.getTotalVotes() != 0) {
           setTotalVotes(other.getTotalVotes());
         }
         if (other.status_ != 0) {
@@ -75529,9 +75529,9 @@ java.lang.String defaultValue) {
                 break;
               } // case 26
               case 32: {
-                long v = input.readInt64();
+                int v = input.readInt32();
                 ensureVoteCountsIsMutable();
-                voteCounts_.addLong(v);
+                voteCounts_.addInt(v);
                 break;
               } // case 32
               case 34: {
@@ -75539,13 +75539,13 @@ java.lang.String defaultValue) {
                 int limit = input.pushLimit(length);
                 ensureVoteCountsIsMutable();
                 while (input.getBytesUntilLimit() > 0) {
-                  voteCounts_.addLong(input.readInt64());
+                  voteCounts_.addInt(input.readInt32());
                 }
                 input.popLimit(limit);
                 break;
               } // case 34
               case 40: {
-                totalVotes_ = input.readInt64();
+                totalVotes_ = input.readInt32();
                 bitField0_ |= 0x00000010;
                 break;
               } // case 40
@@ -75927,7 +75927,7 @@ java.lang.String defaultValue) {
         return this;
       }
 
-      private com.google.protobuf.Internal.LongList voteCounts_ = emptyLongList();
+      private com.google.protobuf.Internal.IntList voteCounts_ = emptyIntList();
       private void ensureVoteCountsIsMutable() {
         if (!voteCounts_.isModifiable()) {
           voteCounts_ = makeMutableCopy(voteCounts_);
@@ -75942,7 +75942,7 @@ java.lang.String defaultValue) {
        * <code>repeated int64 vote_counts = 4;</code>
        * @return A list containing the voteCounts.
        */
-      public java.util.List<java.lang.Long>
+      public java.util.List<java.lang.Integer>
           getVoteCountsList() {
         voteCounts_.makeImmutable();
         return voteCounts_;
@@ -75967,7 +75967,7 @@ java.lang.String defaultValue) {
        * @param index The index of the element to return.
        * @return The voteCounts at the given index.
        */
-      public long getVoteCounts(int index) {
+      public int getVoteCounts(int index) {
         return voteCounts_.getLong(index);
       }
       /**
@@ -75981,10 +75981,10 @@ java.lang.String defaultValue) {
        * @return This builder for chaining.
        */
       public Builder setVoteCounts(
-          int index, long value) {
+          int index, int value) {
 
         ensureVoteCountsIsMutable();
-        voteCounts_.setLong(index, value);
+        voteCounts_.setInt(index, value);
         bitField0_ |= 0x00000008;
         onChanged();
         return this;
@@ -75998,10 +75998,10 @@ java.lang.String defaultValue) {
        * @param value The voteCounts to add.
        * @return This builder for chaining.
        */
-      public Builder addVoteCounts(long value) {
+      public Builder addVoteCounts(int value) {
 
         ensureVoteCountsIsMutable();
-        voteCounts_.addLong(value);
+        voteCounts_.addInt(value);
         bitField0_ |= 0x00000008;
         onChanged();
         return this;
@@ -76016,7 +76016,7 @@ java.lang.String defaultValue) {
        * @return This builder for chaining.
        */
       public Builder addAllVoteCounts(
-          java.lang.Iterable<? extends java.lang.Long> values) {
+          java.lang.Iterable<? extends java.lang.Integer> values) {
         ensureVoteCountsIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
             values, voteCounts_);
@@ -76033,19 +76033,19 @@ java.lang.String defaultValue) {
        * @return This builder for chaining.
        */
       public Builder clearVoteCounts() {
-        voteCounts_ = emptyLongList();
+        voteCounts_ = emptyIntList();
         bitField0_ = (bitField0_ & ~0x00000008);
         onChanged();
         return this;
       }
 
-      private long totalVotes_ ;
+      private int totalVotes_ ;
       /**
        * <code>int64 total_votes = 5;</code>
        * @return The totalVotes.
        */
       @java.lang.Override
-      public long getTotalVotes() {
+      public int getTotalVotes() {
         return totalVotes_;
       }
       /**
@@ -76053,7 +76053,7 @@ java.lang.String defaultValue) {
        * @param value The totalVotes to set.
        * @return This builder for chaining.
        */
-      public Builder setTotalVotes(long value) {
+      public Builder setTotalVotes(int value) {
 
         totalVotes_ = value;
         bitField0_ |= 0x00000010;
@@ -76066,7 +76066,7 @@ java.lang.String defaultValue) {
        */
       public Builder clearTotalVotes() {
         bitField0_ = (bitField0_ & ~0x00000010);
-        totalVotes_ = 0L;
+        totalVotes_ = 0;
         onChanged();
         return this;
       }
@@ -76326,7 +76326,7 @@ java.lang.String defaultValue) {
      * <code>int64 viewers = 3;</code>
      * @return The viewers.
      */
-    long getViewers();
+    int getViewers();
 
     /**
      * <pre>
@@ -76520,7 +76520,7 @@ java.lang.String defaultValue) {
     }
 
     public static final int VIEWERS_FIELD_NUMBER = 3;
-    private long viewers_ = 0L;
+    private int viewers_ = 0;
     /**
      * <pre>
      * current viewer count (0 when offline); Discord = guild member count
@@ -76530,7 +76530,7 @@ java.lang.String defaultValue) {
      * @return The viewers.
      */
     @java.lang.Override
-    public long getViewers() {
+    public int getViewers() {
       return viewers_;
     }
 
@@ -76631,8 +76631,8 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(channel_)) {
         com.google.protobuf.GeneratedMessage.writeString(output, 2, channel_);
       }
-      if (viewers_ != 0L) {
-        output.writeInt64(3, viewers_);
+      if (viewers_ != 0) {
+        output.writeInt32(3, viewers_);
       }
       if (isLive_ != false) {
         output.writeBool(4, isLive_);
@@ -76653,9 +76653,9 @@ java.lang.String defaultValue) {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(channel_)) {
         size += com.google.protobuf.GeneratedMessage.computeStringSize(2, channel_);
       }
-      if (viewers_ != 0L) {
+      if (viewers_ != 0) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(3, viewers_);
+          .computeInt32Size(3, viewers_);
       }
       if (isLive_ != false) {
         size += com.google.protobuf.CodedOutputStream
@@ -76863,7 +76863,7 @@ java.lang.String defaultValue) {
         bitField0_ = 0;
         platform_ = "";
         channel_ = "";
-        viewers_ = 0L;
+        viewers_ = 0;
         isLive_ = false;
         title_ = "";
         updatedAt_ = 0L;
@@ -76942,7 +76942,7 @@ java.lang.String defaultValue) {
           bitField0_ |= 0x00000002;
           onChanged();
         }
-        if (other.getViewers() != 0L) {
+        if (other.getViewers() != 0) {
           setViewers(other.getViewers());
         }
         if (other.getIsLive() != false) {
@@ -76993,7 +76993,7 @@ java.lang.String defaultValue) {
                 break;
               } // case 18
               case 24: {
-                viewers_ = input.readInt64();
+                viewers_ = input.readInt32();
                 bitField0_ |= 0x00000004;
                 break;
               } // case 24
@@ -77243,7 +77243,7 @@ java.lang.String defaultValue) {
         return this;
       }
 
-      private long viewers_ ;
+      private int viewers_ ;
       /**
        * <pre>
        * current viewer count (0 when offline); Discord = guild member count
@@ -77253,7 +77253,7 @@ java.lang.String defaultValue) {
        * @return The viewers.
        */
       @java.lang.Override
-      public long getViewers() {
+      public int getViewers() {
         return viewers_;
       }
       /**
@@ -77265,7 +77265,7 @@ java.lang.String defaultValue) {
        * @param value The viewers to set.
        * @return This builder for chaining.
        */
-      public Builder setViewers(long value) {
+      public Builder setViewers(int value) {
 
         viewers_ = value;
         bitField0_ |= 0x00000004;
@@ -77282,7 +77282,7 @@ java.lang.String defaultValue) {
        */
       public Builder clearViewers() {
         bitField0_ = (bitField0_ & ~0x00000004);
-        viewers_ = 0L;
+        viewers_ = 0;
         onChanged();
         return this;
       }

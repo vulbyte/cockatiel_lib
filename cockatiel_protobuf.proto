@@ -760,7 +760,7 @@ message QueryParams {
   string reason = 13;
 
   // MOD_TIMEOUT / USERDB_TIMEOUT. 0 means the engine's default.
-  int64 duration_secs = 14;
+  int32 duration_secs = 14;
 
   // SET_CREDENTIALS: the module whose credentials are being written.
   string module_name = 15;
@@ -855,9 +855,9 @@ message User {
   bool is_admin = 5;
   bool is_owner = 6;
 
-  int64 score = 7;          // CURRENT (spendable) score
-  int64 commendations = 8;
-  int64 reprimands = 9;
+  int32 score = 7;          // CURRENT (spendable) score
+  int32 commendations = 8;
+  int32 reprimands = 9;
 
   repeated ChannelRef channels = 10;
   string flags = 11;        // JSON blob of module-defined metadata
@@ -867,9 +867,9 @@ message User {
 
   // Lifetime score earned (never reduced by spending). Backfilled from `score`
   // at migration time; every positive score change also bumps it.
-  int64 total_score = 14;
+  int32 total_score = 14;
   // How many chat messages this user has sent (a rank factor).
-  int64 messages_sent = 15;
+  int32 messages_sent = 15;
   // The user's CURRENT rank on the 0-1 scale, computed server-side from
   // score, ratings, messages and account age (with configurable decay) and
   // returned alongside the rest of the record so callers never make a second
@@ -905,7 +905,7 @@ message DeleteUserRequest {
 
 message ScoreRequest {
   string uuid7 = 1;
-  int64 delta = 2;          // signed change; add=+n, remove=-n
+  int32 delta = 2;          // signed change; add=+n, remove=-n
   string reason = 3;
 }
 
@@ -985,7 +985,7 @@ message UserValueListRequest {
 // lifetime `total_score` is untouched.
 message DeductScoreRequest {
   string uuid7 = 1;
-  int64 amount = 2;
+  int32 amount = 2;
   string reason = 3;
 }
 
@@ -1077,9 +1077,9 @@ message PredictionUpdate {
   string prompt = 2;
   string side_left_label = 3;   // default "Yes"
   string side_right_label = 4;  // default "No"
-  int64 side_left_total = 5;    // score bet on the left side
-  int64 side_right_total = 6;   // score bet on the right side
-  int64 pot = 7;
+  int32 side_left_total = 5;    // score bet on the left side
+  int32 side_right_total = 6;   // score bet on the right side
+  int32 pot = 7;
   enum Status {
     STATUS_UNSPECIFIED = 0;
     STATUS_OPEN = 1;
@@ -1103,8 +1103,8 @@ message PollUpdate {
   string poll_id = 1;
   string prompt = 2;
   repeated string options = 3;      // 1..6 options, index 0 = option 1
-  repeated int64 vote_counts = 4;   // parallel to options
-  int64 total_votes = 5;
+  repeated int32 vote_counts = 4;   // parallel to options
+  int32 total_votes = 5;
   enum Status {
     STATUS_UNSPECIFIED = 0;
     STATUS_OPEN = 1;
@@ -1126,7 +1126,7 @@ message ChannelStats {
    */
   string platform = 1;      // "twitch" | "kick" | "youtube" | "discord"
   string channel = 2;       // channel name / guild id / video id
-  int64 viewers = 3;        // current viewer count (0 when offline); Discord = guild member count
+  int32 viewers = 3;        // current viewer count (0 when offline); Discord = guild member count
   bool is_live = 4;         // whether the channel is currently streaming
   string title = 5;         // current stream/game title when live, else empty
   int64 updated_at = 6;     // unix millis when this was last refreshed
