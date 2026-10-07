@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net.WebSockets;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
@@ -58,7 +59,9 @@ public sealed class CockatielClient : IDisposable
     private static readonly HashSet<Type> _inboundTypes = new(BuildPayloadGetter().Values.Select(p => p.PropertyType));
 
     private readonly CockatielClientOptions _opts;
-    private readonly List<Action<ContainerForModule>> _allHandlers = new();
+    // Concurrent: ReceiveAny may be called at runtime from any thread while the
+    // receive loop enumerates the handler set to dispatch a frame.
+    private readonly ConcurrentQueue<Action<ContainerForModule>> _allHandlers = new();
     private readonly ConcurrentDictionary<Type, List<Action<object>>> _typedHandlers = new();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
 
@@ -100,7 +103,7 @@ public sealed class CockatielClient : IDisposable
 
         LoadDotEnv();
 
-        var ws = new ClientWebSocket();
+        var ws = CreateSocket();
         await ws.ConnectAsync(BuildUrl(opts), ct);
 
         var pin = ResolvePin(opts);
@@ -181,7 +184,7 @@ public sealed class CockatielClient : IDisposable
     public void ReceiveAny(Action<ContainerForModule> handler)
     {
         if (handler is null) throw new ArgumentNullException(nameof(handler));
-        _allHandlers.Add(handler);
+        _allHandlers.Enqueue(handler);
     }
 
     /// <summary>Register a typed handler for a specific inbound payload type.</summary>
@@ -216,7 +219,7 @@ public sealed class CockatielClient : IDisposable
         // Open the fresh socket and send the reauth BEFORE retiring the old
         // one: the engine's reconnect path verifies the token against the
         // still-alive session, so it must exist when the reauth lands.
-        var ws = new ClientWebSocket();
+        var ws = CreateSocket();
         await ws.ConnectAsync(BuildUrl(_opts), ct);
 
         // The engine requires the FIRST message on a fresh socket to be a
@@ -329,7 +332,62 @@ public sealed class CockatielClient : IDisposable
         ModuleInstanceUuid7 = _instanceUuid7,
     };
 
-    private static Uri BuildUrl(CockatielClientOptions opts) => new($"ws://{opts.Ip}:{opts.Port}");
+    private static Uri BuildUrl(CockatielClientOptions opts)
+    {
+        // The engine only accepts WSS; when COCKATIEL_TLS_CERT names its
+        // self-signed cert we connect over wss:// and pin that exact cert.
+        var scheme = TlsEnabled() ? "wss" : "ws";
+        return new Uri($"{scheme}://{opts.Ip}:{opts.Port}");
+    }
+
+    /// <summary>True when COCKATIEL_TLS_CERT is set (engine expects wss://).</summary>
+    private static bool TlsEnabled()
+    {
+        var value = Environment.GetEnvironmentVariable("COCKATIEL_TLS_CERT");
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    /// <summary>
+    /// Create a ClientWebSocket, pinning the engine's self-signed certificate
+    /// when COCKATIEL_TLS_CERT is set (inline PEM or a path to a PEM file). Only
+    /// the exact certificate from that env var is trusted.
+    /// </summary>
+    private static ClientWebSocket CreateSocket()
+    {
+        var ws = new ClientWebSocket();
+        var pinned = LoadPinnedCert();
+        if (pinned is not null)
+        {
+            ws.Options.RemoteCertificateValidationCallback = (_, certificate, _, _) =>
+            {
+                if (certificate is null) return false;
+                using var presented = new X509Certificate2(certificate);
+                return presented.RawData.AsSpan().SequenceEqual(pinned.RawData);
+            };
+        }
+        return ws;
+    }
+
+    private static X509Certificate2? LoadPinnedCert()
+    {
+        var value = Environment.GetEnvironmentVariable("COCKATIEL_TLS_CERT");
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        string pem;
+        try
+        {
+            pem = value.Contains("-----BEGIN", StringComparison.Ordinal)
+                ? value
+                : File.ReadAllText(value);
+        }
+        catch (Exception e)
+        {
+            throw new InvalidOperationException(
+                $"Failed to read engine TLS cert from COCKATIEL_TLS_CERT='{value}': {e.Message}", e);
+        }
+
+        return X509Certificate2.CreateFromPem(pem);
+    }
 
     private static int ResolvePin(CockatielClientOptions opts)
     {

@@ -70,6 +70,55 @@ const INBOUND_FIELDS = [
 const STAGE_FIELDS = ['messagePreProcess', 'messageInProcess', 'messagePostProcess'];
 
 /**
+ * ProcessPosition enum values (see cockatiel_protobuf.proto). protobufjs does
+ * NOT reject an unknown enum NAME at encode time — it silently writes 0 — so the
+ * documented string values must be mapped to numbers before they reach the
+ * encoder.
+ */
+const PROCESS_POSITION_VALUES = {
+  preprocess: 1,
+  inprocess: 2,
+  postprocess: 3,
+  connection: 4,
+};
+
+/**
+ * Normalize a process position to the numeric ProcessPosition enum. Accepts a
+ * raw number (returned as-is) or one of the documented strings
+ * ("preprocess" | "inprocess" | "postprocess" | "connection"), matched
+ * case-insensitively and tolerating the full PROCESS_POSITION_* enum spelling.
+ *
+ * @param {number|string|null|undefined} value
+ * @returns {number}
+ */
+export function normalizeProcessPosition(value) {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return value;
+  const key = String(value).trim().toLowerCase().replace(/^process_position_/, '');
+  if (Object.prototype.hasOwnProperty.call(PROCESS_POSITION_VALUES, key)) {
+    return PROCESS_POSITION_VALUES[key];
+  }
+  throw new EngineError(
+    `Unknown process position '${value}' (expected preprocess | inprocess | postprocess | connection)`
+  );
+}
+
+/**
+ * Resolve the engine PIN. The supervisor's COCKATIEL_PIN environment variable
+ * wins over the caller-supplied value, matching every other Cockatiel client.
+ *
+ * @param {Object} opts
+ * @param {Object} [env]
+ * @returns {number|string}
+ */
+export function resolvePin(opts, env = process.env) {
+  const raw = env.COCKATIEL_PIN;
+  const envPin = raw != null && raw !== '' ? parseInt(raw, 10) : NaN;
+  if (!Number.isNaN(envPin)) return envPin;
+  return opts.pin != null ? opts.pin : 0;
+}
+
+/**
  * Build the WebSocket for a given engine URL. When `COCKATIEL_TLS_CERT` is set
  * (and non-empty), connect via `wss://` and pin the given PEM certificate so a
  * self-signed engine cert is accepted. Falls back to plain `ws://` when the env
@@ -138,7 +187,7 @@ export class EngineConnection {
     this.pb = pb;
     this.moduleName = moduleName;
     this._moduleInstanceUuid7 = moduleInstanceUuid7;
-    this._processPosition = processPosition || '';
+    this._processPosition = normalizeProcessPosition(processPosition);
     this._priority = priority != null ? priority : 100;
     this._authToken = '';
     this._closing = false;
@@ -275,7 +324,7 @@ export class EngineConnection {
       moduleInstanceUuid7: this._moduleInstanceUuid7,
       connectionRequest: {
         pin: 0,
-        processPosition: this._processPosition || '',
+        processPosition: this._processPosition,
         priority: this._priority || 100,
         moduleInstanceUuid7: this._moduleInstanceUuid7,
       },
@@ -310,7 +359,8 @@ export class EngineConnection {
  *   `ContainerForEngine` (outbound) and `ContainerForModule` (inbound)
  */
 export async function connectToEngine(opts, pb) {
-  const pin = opts.pin != null ? opts.pin : (process.env.COCKATIEL_PIN != null ? parseInt(process.env.COCKATIEL_PIN, 10) : 0);
+  const pin = resolvePin(opts);
+  const processPosition = normalizeProcessPosition(opts.processPosition);
   const requestedUuid = opts.moduleInstanceUuid7 || '';
 
   const ws = createEngineSocket(opts.url);
@@ -326,7 +376,7 @@ export async function connectToEngine(opts, pb) {
     moduleInstanceUuid7: requestedUuid,
     connectionRequest: {
       pin,
-      processPosition: opts.processPosition || '',
+      processPosition,
       priority: opts.priority || 100,
       moduleInstanceUuid7: requestedUuid,
     },
@@ -366,7 +416,7 @@ export async function connectToEngine(opts, pb) {
   }
 
   const resolvedUuid = ret.moduleInstanceUuid7 || requestedUuid;
-  const conn = new EngineConnection(ws, pb, opts.moduleName, resolvedUuid, opts.processPosition, opts.priority);
+  const conn = new EngineConnection(ws, pb, opts.moduleName, resolvedUuid, processPosition, opts.priority);
   conn.setAuthToken(responseContainer.authToken);
   return conn;
 }

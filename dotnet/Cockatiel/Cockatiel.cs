@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.WebSockets;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
@@ -140,7 +141,7 @@ namespace Cockatiel {
             "NxgEIAEoCRIMCgRraW5kGAUgASgJEhAKCHNpbmNlX21zGAYgASgDEg0KBWxp",
             "bWl0GAcgASgFEg4KBm9mZnNldBgIIAEoBRINCgV1dWlkNxgKIAEoCRIOCgZo",
             "YW5kbGUYCyABKAkSEgoKY2hhbm5lbF9pZBgMIAEoCRIOCgZyZWFzb24YDSAB",
-            "KAkSFQoNZHVyYXRpb25fc2VjcxgOIAEoAxITCgttb2R1bGVfbmFtZRgPIAEo",
+            "KAkSFQoNZHVyYXRpb25fc2VjcxgOIAEoBRITCgttb2R1bGVfbmFtZRgPIAEo",
             "CRISCgpiYXRjaF91dWlkGBAgASgJEisKBWFjdG9yGBEgASgLMhwuY29ja2F0",
             "aWVsX3Byb3RvYnVmLkFjdG9yUmVmEgwKBGpzb24YEiABKAkiIgoLUXVlcnlS",
             "ZXN1bHQSEwoLcmVzdWx0X2Jsb2IYASABKAwigwEKDFF1ZXJ5UmVxdWVzdBIS",
@@ -154,12 +155,12 @@ namespace Cockatiel {
             "EgoKY2hhbm5lbF9pZBgCIAEoCRIOCgZoYW5kbGUYAyABKAki0gIKBFVzZXIS",
             "DQoFdXVpZDcYASABKAkSEAoIdXNlcm5hbWUYAiABKAkSEgoKaXNfc3BvbnNv",
             "chgDIAEoCBIUCgxpc19tb2RlcmF0b3IYBCABKAgSEAoIaXNfYWRtaW4YBSAB",
-            "KAgSEAoIaXNfb3duZXIYBiABKAgSDQoFc2NvcmUYByABKAMSFQoNY29tbWVu",
-            "ZGF0aW9ucxgIIAEoAxISCgpyZXByaW1hbmRzGAkgASgDEjAKCGNoYW5uZWxz",
+            "KAgSEAoIaXNfb3duZXIYBiABKAgSDQoFc2NvcmUYByABKAUSFQoNY29tbWVu",
+            "ZGF0aW9ucxgIIAEoBRISCgpyZXByaW1hbmRzGAkgASgFEjAKCGNoYW5uZWxz",
             "GAogAygLMh4uY29ja2F0aWVsX3Byb3RvYnVmLkNoYW5uZWxSZWYSDQoFZmxh",
             "Z3MYCyABKAkSEgoKY3JlYXRlZF9hdBgMIAEoAxISCgp1cGRhdGVkX2F0GA0g",
-            "ASgDEhMKC3RvdGFsX3Njb3JlGA4gASgDEhUKDW1lc3NhZ2VzX3NlbnQYDyAB",
-            "KAMSDAoEcmFuaxgQIAEoAyKMAQoSUmF0aW5nSGlzdG9yeUVudHJ5Eg0KBXV1",
+            "ASgDEhMKC3RvdGFsX3Njb3JlGA4gASgFEhUKDW1lc3NhZ2VzX3NlbnQYDyAB",
+            "KAUSDAoEcmFuaxgQIAEoAiKMAQoSUmF0aW5nSGlzdG9yeUVudHJ5Eg0KBXV1",
             "aWQ3GAEgASgJEhMKC2dpdmVyX3V1aWQ3GAIgASgJEgwKBGtpbmQYAyABKAkS",
             "EAoIcGxhdGZvcm0YBCABKAkSDgoGaGFuZGxlGAUgASgJEg4KBnJlYXNvbhgG",
             "IAEoCRISCgpjcmVhdGVkX2F0GAcgASgDIlMKDkFkZFVzZXJSZXF1ZXN0EhAK",
@@ -167,7 +168,7 @@ namespace Cockatiel {
             "cHJvdG9idWYuQ2hhbm5lbFJlZiJLChFEZWxldGVVc2VyUmVxdWVzdBINCgV1",
             "dWlkNxgBIAEoCRITCgthY3Rvcl91dWlkNxgCIAEoCRISCgphY3Rvcl9yb2xl",
             "GAMgASgJIjwKDFNjb3JlUmVxdWVzdBINCgV1dWlkNxgBIAEoCRINCgVkZWx0",
-            "YRgCIAEoAxIOCgZyZWFzb24YAyABKAkiiAEKDVJhdGluZ1JlcXVlc3QSEwoL",
+            "YRgCIAEoBRIOCgZyZWFzb24YAyABKAkiiAEKDVJhdGluZ1JlcXVlc3QSEwoL",
             "Z2l2ZXJfdXVpZDcYASABKAkSFwoPcmVjaXBpZW50X3V1aWQ3GAIgASgJEhcK",
             "D2lzX2NvbW1lbmRhdGlvbhgDIAEoCBIQCghwbGF0Zm9ybRgEIAEoCRIOCgZo",
             "YW5kbGUYBSABKAkSDgoGcmVhc29uGAYgASgJIlMKEUFkZENoYW5uZWxSZXF1",
@@ -187,7 +188,7 @@ namespace Cockatiel {
             "dWx0EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCSI0ChZVc2VyVmFsdWVE",
             "ZWxldGVSZXF1ZXN0Eg0KBXV1aWQ3GAEgASgJEgsKA2tleRgCIAEoCSIlChRV",
             "c2VyVmFsdWVMaXN0UmVxdWVzdBINCgV1dWlkNxgBIAEoCSJDChJEZWR1Y3RT",
-            "Y29yZVJlcXVlc3QSDQoFdXVpZDcYASABKAkSDgoGYW1vdW50GAIgASgDEg4K",
+            "Y29yZVJlcXVlc3QSDQoFdXVpZDcYASABKAkSDgoGYW1vdW50GAIgASgFEg4K",
             "BnJlYXNvbhgDIAEoCSJVChdHZXRSYXRpbmdIaXN0b3J5UmVxdWVzdBINCgV1",
             "dWlkNxgBIAEoCRIMCgRraW5kGAIgASgJEg0KBWxpbWl0GAMgASgFEg4KBm9m",
             "ZnNldBgEIAEoBSIpChhJbmNyZW1lbnRNZXNzYWdlc1JlcXVlc3QSDQoFdXVp",
@@ -231,20 +232,20 @@ namespace Cockatiel {
             "cHJvdG9idWYuUmF0aW5nSGlzdG9yeUVudHJ5ItwCChBQcmVkaWN0aW9uVXBk",
             "YXRlEhUKDXByZWRpY3Rpb25faWQYASABKAkSDgoGcHJvbXB0GAIgASgJEhcK",
             "D3NpZGVfbGVmdF9sYWJlbBgDIAEoCRIYChBzaWRlX3JpZ2h0X2xhYmVsGAQg",
-            "ASgJEhcKD3NpZGVfbGVmdF90b3RhbBgFIAEoAxIYChBzaWRlX3JpZ2h0X3Rv",
-            "dGFsGAYgASgDEgsKA3BvdBgHIAEoAxI7CgZzdGF0dXMYCCABKA4yKy5jb2Nr",
+            "ASgJEhcKD3NpZGVfbGVmdF90b3RhbBgFIAEoBRIYChBzaWRlX3JpZ2h0X3Rv",
+            "dGFsGAYgASgFEgsKA3BvdBgHIAEoBRI7CgZzdGF0dXMYCCABKA4yKy5jb2Nr",
             "YXRpZWxfcHJvdG9idWYuUHJlZGljdGlvblVwZGF0ZS5TdGF0dXMSEwoLd2lu",
             "bmVyX3NpZGUYCSABKAkiXAoGU3RhdHVzEhYKElNUQVRVU19VTlNQRUNJRklF",
             "RBAAEg8KC1NUQVRVU19PUEVOEAESEwoPU1RBVFVTX1JFU09MVkVEEAISFAoQ",
             "U1RBVFVTX0NBTkNFTExFRBADIpACCgpQb2xsVXBkYXRlEg8KB3BvbGxfaWQY",
             "ASABKAkSDgoGcHJvbXB0GAIgASgJEg8KB29wdGlvbnMYAyADKAkSEwoLdm90",
-            "ZV9jb3VudHMYBCADKAMSEwoLdG90YWxfdm90ZXMYBSABKAMSNQoGc3RhdHVz",
+            "ZV9jb3VudHMYBCADKAUSEwoLdG90YWxfdm90ZXMYBSABKAUSNQoGc3RhdHVz",
             "GAYgASgOMiUuY29ja2F0aWVsX3Byb3RvYnVmLlBvbGxVcGRhdGUuU3RhdHVz",
             "EhQKDHdpbm5lcl9pbmRleBgHIAEoBRITCgtoaWRlX2NvdW50cxgIIAEoCCJE",
             "CgZTdGF0dXMSFgoSU1RBVFVTX1VOU1BFQ0lGSUVEEAASDwoLU1RBVFVTX09Q",
             "RU4QARIRCg1TVEFUVVNfQ0xPU0VEEAIidgoMQ2hhbm5lbFN0YXRzEhAKCHBs",
             "YXRmb3JtGAEgASgJEg8KB2NoYW5uZWwYAiABKAkSDwoHdmlld2VycxgDIAEo",
-            "AxIPCgdpc19saXZlGAQgASgIEg0KBXRpdGxlGAUgASgJEhIKCnVwZGF0ZWRf",
+            "BRIPCgdpc19saXZlGAQgASgIEg0KBXRpdGxlGAUgASgJEhIKCnVwZGF0ZWRf",
             "YXQYBiABKAMiwgwKEkNvbnRhaW5lckZvck1vZHVsZRIPCgd2ZXJzaW9uGAEg",
             "ASgFEhIKCmF1dGhfdG9rZW4YAyABKAkSHQoVbW9kdWxlX2luc3RhbmNlX3V1",
             "aWQ3GAUgASgJEiYKA2JhbhgGIAEoCzIXLmNvY2thdGllbF9wcm90b2J1Zi5C",
@@ -337,7 +338,7 @@ namespace Cockatiel {
             "RV9DT05UUk9MX0FDVElPTl9TRVRfQVVUT1NUQVJUEAQqdgoKUHJvbXB0VHlw",
             "ZRIbChdQUk9NUFRfVFlQRV9VTlNQRUNJRklFRBAAEhcKE1BST01QVF9UWVBF",
             "X0JPT0xFQU4QARIWChJQUk9NUFRfVFlQRV9TVFJJTkcQAhIaChZQUk9NUFRf",
-            "VFlQRV9DUkVERU5USUFMEAMqrwoKB1F1ZXJ5T3ASGAoUUVVFUllfT1BfVU5T",
+            "VFlQRV9DUkVERU5USUFMEAMqtgoKB1F1ZXJ5T3ASGAoUUVVFUllfT1BfVU5T",
             "UEVDSUZJRUQQABIWChJRVUVSWV9PUF9EQl9TVEFUVVMQARIYChRRVUVSWV9P",
             "UF9NT0RVTEVfTElTVBACEhgKFFFVRVJZX09QX0VOR0lORV9JTkZPEAMSHAoY",
             "UVVFUllfT1BfU0VUX0NSRURFTlRJQUxTEAQSHgoaUVVFUllfT1BfQVVESU9f",
@@ -350,24 +351,24 @@ namespace Cockatiel {
             "T0RfQkFOEBYSGAoUUVVFUllfT1BfTU9EX1RJTUVPVVQQFxIZChVRVUVSWV9P",
             "UF9DSEFUX0NPTU1FTkQQHhIbChdRVUVSWV9PUF9DSEFUX1JFUFJJTUFORBAf",
             "EiEKHVFVRVJZX09QX0NIQVRfVkVSSUZZX0lERU5USVRZECASHAoYUVVFUllf",
-            "T1BfVVNFUkRCX0FERF9VU0VSECgSHwobUVVFUllfT1BfVVNFUkRCX0RFTEVU",
-            "RV9VU0VSECkSHQoZUVVFUllfT1BfVVNFUkRCX0FERF9TQ09SRRAqEiAKHFFV",
-            "RVJZX09QX1VTRVJEQl9SRU1PVkVfU0NPUkUQKxIfChtRVUVSWV9PUF9VU0VS",
-            "REJfQUREX0NIQU5ORUwQLBIiCh5RVUVSWV9PUF9VU0VSREJfUkVNT1ZFX0NI",
-            "QU5ORUwQLRIcChhRVUVSWV9PUF9VU0VSREJfR0VUX1VTRVIQLhIeChpRVUVS",
-            "WV9PUF9VU0VSREJfTElTVF9VU0VSUxAvEiAKHFFVRVJZX09QX1VTRVJEQl9V",
-            "UERBVEVfRkxBR1MQMBIdChlRVUVSWV9PUF9VU0VSREJfU0VUX1JPTEVTEDES",
-            "IwofUVVFUllfT1BfVVNFUkRCX1JFQURfVVNFUl9WQUxVRRAyEiQKIFFVRVJZ",
-            "X09QX1VTRVJEQl9XUklURV9VU0VSX1ZBTFVFEDMSJQohUVVFUllfT1BfVVNF",
-            "UkRCX0RFTEVURV9VU0VSX1ZBTFVFEDQSJAogUVVFUllfT1BfVVNFUkRCX0xJ",
-            "U1RfVVNFUl9WQUxVRVMQNRIgChxRVUVSWV9PUF9VU0VSREJfQ09NTUVOREFU",
-            "SU9OEDYSHQoZUVVFUllfT1BfVVNFUkRCX1JFUFJJTUFORBA3EhcKE1FVRVJZ",
-            "X09QX1VTRVJEQl9CQU4QOBIbChdRVUVSWV9PUF9VU0VSREJfVElNRU9VVBA5",
-            "EiAKHFFVRVJZX09QX1VTRVJEQl9BREpVU1RfU0NPUkUQOhIcChhRVUVSWV9P",
-            "UF9FTkdJTkVfU0hVVERPV04QPBIhCh1RVUVSWV9PUF9QUkVESUNUSU9OX0dF",
-            "VF9TQ09SRRBGEhwKGFFVRVJZX09QX0NIQU5ORUxfVklFV0VSUxBHEhoKFlFV",
-            "RVJZX09QX1RJTUVMSU5FX1JFQUQQUBISCg5RVUVSWV9PUF9TVEFUUxBRYgZw",
-            "cm90bzM="));
+            "T1BfVVNFUkRCX0FERF9VU0VSECgSJgoiUVVFUllfT1BfVVNFUkRCX0RFTEVU",
+            "RV9VU0VSX1JFQ09SRBApEh0KGVFVRVJZX09QX1VTRVJEQl9BRERfU0NPUkUQ",
+            "KhIgChxRVUVSWV9PUF9VU0VSREJfUkVNT1ZFX1NDT1JFECsSHwobUVVFUllf",
+            "T1BfVVNFUkRCX0FERF9DSEFOTkVMECwSIgoeUVVFUllfT1BfVVNFUkRCX1JF",
+            "TU9WRV9DSEFOTkVMEC0SHAoYUVVFUllfT1BfVVNFUkRCX0dFVF9VU0VSEC4S",
+            "HgoaUVVFUllfT1BfVVNFUkRCX0xJU1RfVVNFUlMQLxIgChxRVUVSWV9PUF9V",
+            "U0VSREJfVVBEQVRFX0ZMQUdTEDASHQoZUVVFUllfT1BfVVNFUkRCX1NFVF9S",
+            "T0xFUxAxEiMKH1FVRVJZX09QX1VTRVJEQl9SRUFEX1VTRVJfVkFMVUUQMhIk",
+            "CiBRVUVSWV9PUF9VU0VSREJfV1JJVEVfVVNFUl9WQUxVRRAzEiUKIVFVRVJZ",
+            "X09QX1VTRVJEQl9ERUxFVEVfVVNFUl9WQUxVRRA0EiQKIFFVRVJZX09QX1VT",
+            "RVJEQl9MSVNUX1VTRVJfVkFMVUVTEDUSIAocUVVFUllfT1BfVVNFUkRCX0NP",
+            "TU1FTkRBVElPThA2Eh0KGVFVRVJZX09QX1VTRVJEQl9SRVBSSU1BTkQQNxIX",
+            "ChNRVUVSWV9PUF9VU0VSREJfQkFOEDgSGwoXUVVFUllfT1BfVVNFUkRCX1RJ",
+            "TUVPVVQQORIgChxRVUVSWV9PUF9VU0VSREJfQURKVVNUX1NDT1JFEDoSHAoY",
+            "UVVFUllfT1BfRU5HSU5FX1NIVVRET1dOEDwSIQodUVVFUllfT1BfUFJFRElD",
+            "VElPTl9HRVRfU0NPUkUQRhIcChhRVUVSWV9PUF9DSEFOTkVMX1ZJRVdFUlMQ",
+            "RxIaChZRVUVSWV9PUF9USU1FTElORV9SRUFEEFASEgoOUVVFUllfT1BfU1RB",
+            "VFMQUWIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Cockatiel.ProcessPosition), typeof(global::Cockatiel.FlagLimitType), typeof(global::Cockatiel.PlatformSendLevel), typeof(global::Cockatiel.EventCategory), typeof(global::Cockatiel.ModuleControlAction), typeof(global::Cockatiel.PromptType), typeof(global::Cockatiel.QueryOp), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -568,7 +569,7 @@ namespace Cockatiel {
     /// ── User database (engine-internal) ──
     /// </summary>
     [pbr::OriginalName("QUERY_OP_USERDB_ADD_USER")] UserdbAddUser = 40,
-    [pbr::OriginalName("QUERY_OP_USERDB_DELETE_USER")] UserdbDeleteUser = 41,
+    [pbr::OriginalName("QUERY_OP_USERDB_DELETE_USER_RECORD")] UserdbDeleteUserRecord = 41,
     [pbr::OriginalName("QUERY_OP_USERDB_ADD_SCORE")] UserdbAddScore = 42,
     [pbr::OriginalName("QUERY_OP_USERDB_REMOVE_SCORE")] UserdbRemoveScore = 43,
     [pbr::OriginalName("QUERY_OP_USERDB_ADD_CHANNEL")] UserdbAddChannel = 44,
@@ -14128,10 +14129,11 @@ namespace Cockatiel {
     public const int RankFieldNumber = 16;
     private float rank_;
     /// <summary>
-    /// The user's CURRENT rank on the 0-1 scale, computed server-side from score, ratings,
-    /// messages and account age (with configurable decay) and returned alongside
-    /// the rest of the record so callers never make a second trip for it.
-    /// Numbers are for logic; tier NAMES are a display concern derived locally from the root `rank_chart.json`.
+    /// The user's CURRENT rank on the 0-1 scale, computed server-side from
+    /// score, ratings, messages and account age (with configurable decay) and
+    /// returned alongside the rest of the record so callers never make a second
+    /// trip for it. Numbers are for logic; tier NAMES are a display concern
+    /// derived locally from the root `rank_chart.json`.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -14172,7 +14174,7 @@ namespace Cockatiel {
       if (UpdatedAt != other.UpdatedAt) return false;
       if (TotalScore != other.TotalScore) return false;
       if (MessagesSent != other.MessagesSent) return false;
-      if (Rank != other.Rank) return false;
+      if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(Rank, other.Rank)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -14539,7 +14541,7 @@ namespace Cockatiel {
             MessagesSent = input.ReadInt32();
             break;
           }
-          case 128: {
+          case 133: {
             Rank = input.ReadFloat();
             break;
           }
@@ -14622,7 +14624,7 @@ namespace Cockatiel {
             MessagesSent = input.ReadInt32();
             break;
           }
-          case 128: {
+          case 133: {
             Rank = input.ReadFloat();
             break;
           }
@@ -26548,7 +26550,9 @@ public sealed class CockatielClient : IDisposable
     private static readonly HashSet<Type> _inboundTypes = new(BuildPayloadGetter().Values.Select(p => p.PropertyType));
 
     private readonly CockatielClientOptions _opts;
-    private readonly List<Action<ContainerForModule>> _allHandlers = new();
+    // Concurrent: ReceiveAny may be called at runtime from any thread while the
+    // receive loop enumerates the handler set to dispatch a frame.
+    private readonly ConcurrentQueue<Action<ContainerForModule>> _allHandlers = new();
     private readonly ConcurrentDictionary<Type, List<Action<object>>> _typedHandlers = new();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
 
@@ -26590,7 +26594,7 @@ public sealed class CockatielClient : IDisposable
 
         LoadDotEnv();
 
-        var ws = new ClientWebSocket();
+        var ws = CreateSocket();
         await ws.ConnectAsync(BuildUrl(opts), ct);
 
         var pin = ResolvePin(opts);
@@ -26671,7 +26675,7 @@ public sealed class CockatielClient : IDisposable
     public void ReceiveAny(Action<ContainerForModule> handler)
     {
         if (handler is null) throw new ArgumentNullException(nameof(handler));
-        _allHandlers.Add(handler);
+        _allHandlers.Enqueue(handler);
     }
 
     /// <summary>Register a typed handler for a specific inbound payload type.</summary>
@@ -26706,7 +26710,7 @@ public sealed class CockatielClient : IDisposable
         // Open the fresh socket and send the reauth BEFORE retiring the old
         // one: the engine's reconnect path verifies the token against the
         // still-alive session, so it must exist when the reauth lands.
-        var ws = new ClientWebSocket();
+        var ws = CreateSocket();
         await ws.ConnectAsync(BuildUrl(_opts), ct);
 
         // The engine requires the FIRST message on a fresh socket to be a
@@ -26819,7 +26823,62 @@ public sealed class CockatielClient : IDisposable
         ModuleInstanceUuid7 = _instanceUuid7,
     };
 
-    private static Uri BuildUrl(CockatielClientOptions opts) => new($"ws://{opts.Ip}:{opts.Port}");
+    private static Uri BuildUrl(CockatielClientOptions opts)
+    {
+        // The engine only accepts WSS; when COCKATIEL_TLS_CERT names its
+        // self-signed cert we connect over wss:// and pin that exact cert.
+        var scheme = TlsEnabled() ? "wss" : "ws";
+        return new Uri($"{scheme}://{opts.Ip}:{opts.Port}");
+    }
+
+    /// <summary>True when COCKATIEL_TLS_CERT is set (engine expects wss://).</summary>
+    private static bool TlsEnabled()
+    {
+        var value = Environment.GetEnvironmentVariable("COCKATIEL_TLS_CERT");
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    /// <summary>
+    /// Create a ClientWebSocket, pinning the engine's self-signed certificate
+    /// when COCKATIEL_TLS_CERT is set (inline PEM or a path to a PEM file). Only
+    /// the exact certificate from that env var is trusted.
+    /// </summary>
+    private static ClientWebSocket CreateSocket()
+    {
+        var ws = new ClientWebSocket();
+        var pinned = LoadPinnedCert();
+        if (pinned is not null)
+        {
+            ws.Options.RemoteCertificateValidationCallback = (_, certificate, _, _) =>
+            {
+                if (certificate is null) return false;
+                using var presented = new X509Certificate2(certificate);
+                return presented.RawData.AsSpan().SequenceEqual(pinned.RawData);
+            };
+        }
+        return ws;
+    }
+
+    private static X509Certificate2? LoadPinnedCert()
+    {
+        var value = Environment.GetEnvironmentVariable("COCKATIEL_TLS_CERT");
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        string pem;
+        try
+        {
+            pem = value.Contains("-----BEGIN", StringComparison.Ordinal)
+                ? value
+                : File.ReadAllText(value);
+        }
+        catch (Exception e)
+        {
+            throw new InvalidOperationException(
+                $"Failed to read engine TLS cert from COCKATIEL_TLS_CERT='{value}': {e.Message}", e);
+        }
+
+        return X509Certificate2.CreateFromPem(pem);
+    }
 
     private static int ResolvePin(CockatielClientOptions opts)
     {

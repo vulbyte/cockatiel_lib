@@ -1708,11 +1708,11 @@ function CockatielClient:_try_read_frame()
     local len = bit.band(b1, 0x7F)
     local pos = 3
     if len == 126 then
-        if #buf < pos + 2 then return nil end
+        if #buf < pos + 1 then return nil end
         len = bit.bor(bit.lshift(string.byte(buf, pos), 8), string.byte(buf, pos + 1))
         pos = pos + 2
     elseif len == 127 then
-        if #buf < pos + 8 then return nil end
+        if #buf < pos + 7 then return nil end
         local hi, lo = 0, 0
         for i = 0, 3 do hi = hi * 256 + string.byte(buf, pos + i) end
         for i = 4, 7 do lo = lo * 256 + string.byte(buf, pos + i) end
@@ -1729,11 +1729,11 @@ function CockatielClient:_try_read_frame()
     end
     local mask_key
     if masked then
-        if #buf < pos + 4 then return nil end
+        if #buf < pos + 3 then return nil end
         mask_key = string.sub(buf, pos, pos + 3)
         pos = pos + 4
     end
-    if #buf < pos + len then
+    if #buf < pos + len - 1 then
         return nil
     end
     local payload = string.sub(buf, pos, pos + len - 1)
@@ -2224,6 +2224,36 @@ function CockatielClient.codec_self_test()
     local key = string.sub(frame_bytes, 3, 6)
     local masked = string.sub(frame_bytes, 7, 7 + 4)
     expect(unmask_payload(masked, key) == "hello", "frame masking round trip failed")
+
+    -- 9b. A lone complete frame must parse immediately, without waiting for a
+    --     following byte. Regression: the payload bound was `pos + len`, which
+    --     required one extra byte and stalled single-frame liveness probes.
+    local one = CockatielClient.new({})
+
+    -- Unmasked server frame: 0x82, len, payload.
+    one._rxbuf = string.char(0x82, 2) .. "hi"
+    local uf = one:_try_read_frame()
+    expect(uf ~= nil and uf.opcode == 0x2 and uf.payload == "hi" and one._rxbuf == "",
+        "lone unmasked frame not parsed (payload off-by-one)")
+
+    -- Masked frame (client->server shape): exercises mask-key + payload bounds.
+    one._rxbuf = ws_encode_frame(0x2, "hi")
+    local mf = one:_try_read_frame()
+    expect(mf ~= nil and mf.payload == "hi" and one._rxbuf == "",
+        "lone masked frame not parsed (payload off-by-one)")
+
+    -- Zero-length masked frame: exact mask-key bound (needs 4 bytes at pos).
+    one._rxbuf = ws_encode_frame(0x2, "")
+    local zf = one:_try_read_frame()
+    expect(zf ~= nil and zf.payload == "" and one._rxbuf == "",
+        "lone zero-length masked frame not parsed (mask-key off-by-one)")
+
+    -- Extended 16-bit length frame: exact length-field bound.
+    local big = string.rep("x", 126)
+    one._rxbuf = string.char(0x82, 126) .. string.char(0, 126) .. big
+    local ef = one:_try_read_frame()
+    expect(ef ~= nil and ef.payload == big and one._rxbuf == "",
+        "lone extended-length frame not parsed (length off-by-one)")
 
     -- 10. uuid7 shape
     local u = uuid7()

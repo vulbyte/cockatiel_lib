@@ -4,7 +4,7 @@
   "description": "One-file Cockatiel client (JavaScript) — connect() a module to the engine with single-connection PIN->JWT auth.",
   "main": "lib-cockatiel.mjs",
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.mjs"
   },
   "keywords": ["cockatiel", "chat", "engine", "client"],
   "license": "GPL-2.0-only",
