@@ -1007,6 +1007,13 @@ message IncrementMessagesRequest {
   string uuid7 = 1;
 }
 
+message MergeUsersRequest {
+  string primary_uuid7 = 1;   // survivor: channels/values/rating-history move here
+  string secondary_uuid7 = 2; // consumed: merged into the primary, then deleted
+  string username = 3;        // resulting username; empty = keep the primary's
+  bool roles_from_secondary = 4; // false = the primary's roles win (default)
+}
+
 // The rank formula's tunable parameters. Lives in the user database's own
 // config.json (the db is self-contained and never reads another module's
 // config); this request lets a privileged caller ask it to re-read that file.
@@ -1043,6 +1050,9 @@ message UserDbRequest {
     GetRatingHistoryRequest get_rating_history = 19;
     SetRankConfigRequest set_rank_config = 20;
     IncrementMessagesRequest increment_messages_sent = 21;
+    // Merge two user rows into one: channels/values/rating-history move to the
+    // primary, counters are summed, the secondary is deleted. One transaction.
+    MergeUsersRequest merge_users = 22;
   }
 }
 
