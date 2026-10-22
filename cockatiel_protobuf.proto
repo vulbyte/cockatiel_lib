@@ -1125,6 +1125,15 @@ message PollUpdate {
   bool hide_counts = 8;             // if true, counts are concealed while OPEN
 }
 
+/* A module's surfaced status for the UI (non-blocking). An empty `text` clears
+ * the notice for that `source`. */
+message StatusNotice {
+  string source = 1;   // e.g. "youtube"
+  string level = 2;    // "info" | "warning" | "error"
+  string text = 3;     // human-readable notice; empty = clear
+  int32 ttl_secs = 4;  // 0 = no expiry
+}
+
 message ChannelStats {
   /*
    * expected behavior:
@@ -1182,6 +1191,7 @@ message ContainerForModule {
     PredictionUpdate prediction_update = 37; // live prediction bar state
     PollUpdate poll_update = 38;               // live free-vote poll state
     ChannelStats channel_stats = 39;           // pushed viewer/member counts
+    StatusNotice status_notice = 42;           // a module's non-blocking status notice for the UI
   }
   // Tag 2 was never used in v1. `connection_request` (7) is engine-INBOUND only,
   // `command` (11) is invoked by a module, and 22/23/25/29/30/31/32/33 are
@@ -1222,6 +1232,7 @@ message ContainerForEngine {
     MessagePreProcess message_pre_process = 13;   // STAGE 1 echo / ack-with-result
     MessageInProcess message_in_process = 14;     // STAGE 2 echo / ack-with-result
     MessagePostProcess message_post_process = 15; // STAGE 3 echo / ack-with-result
+    StatusNotice status_notice = 42;  // surface a non-blocking status notice for the UI
   }
   // Reserved: `auth_new` (10) is engine-issued; state (16-18) and results
   // (24, 26) are engine -> module only.
